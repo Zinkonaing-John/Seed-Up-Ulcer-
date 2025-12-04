@@ -175,9 +175,11 @@ export const testBackendConnection = async () => {
   return status;
 };
 
-export default {
+const api = {
   patient: patientAPI,
   llm: llmAPI,
   getBackendStatus,
   testBackendConnection,
 };
+
+export default api;

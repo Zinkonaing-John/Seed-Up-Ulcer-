@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-function ThermographyView({ patient }) {
+function ThermographyView({ patient, children }) {
   const [isLive, setIsLive] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [cameraUrl, setCameraUrl] = useState('http://192.168.10.105:8080/');
@@ -8,51 +8,6 @@ function ThermographyView({ patient }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const BASE_CAMERA_IP = 'http://192.168.10.105:8080';
-
-  // Generate pressure points from ulcer location
-  const generatePressurePoints = (patient) => {
-    const defaultPoints = [
-      { area: 'Sacrum', status: 'Normal', temperature: 36.5 + Math.random() * 0.5 },
-      { area: 'Left Heel', status: 'Normal', temperature: 36.3 + Math.random() * 0.4 },
-      { area: 'Right Heel', status: 'Normal', temperature: 36.3 + Math.random() * 0.4 },
-    ];
-
-    if (!patient.has_ulcer) {
-      if (patient.bradenScore && patient.bradenScore <= 14) {
-        defaultPoints[0].status = 'At Risk';
-        defaultPoints[0].temperature = 37.0 + Math.random() * 0.5;
-      }
-      return defaultPoints;
-    }
-
-    const ulcerLocations = (patient.ulcer_location || '').split(',').map(l => l.trim().toLowerCase());
-    
-    const pressurePoints = [
-      { area: 'Sacrum', status: 'Normal', temperature: 36.5 },
-      { area: 'Left Heel', status: 'Normal', temperature: 36.3 },
-      { area: 'Right Heel', status: 'Normal', temperature: 36.3 },
-      { area: 'Left Trochanter', status: 'Normal', temperature: 36.4 },
-      { area: 'Right Trochanter', status: 'Normal', temperature: 36.4 },
-      { area: 'Coccyx', status: 'Normal', temperature: 36.5 },
-    ];
-
-    pressurePoints.forEach(point => {
-      const areaLower = point.area.toLowerCase();
-      if (ulcerLocations.some(loc => areaLower.includes(loc) || loc.includes(areaLower))) {
-        point.status = `Stage ${patient.ulcer_stage}`;
-        point.temperature = 38.0 + Math.random() * 1.5;
-      } else if (patient.bradenScore && patient.bradenScore <= 12) {
-        if (Math.random() > 0.5) {
-          point.status = 'At Risk';
-          point.temperature = 37.0 + Math.random() * 0.8;
-        }
-      }
-    });
-
-    return pressurePoints.filter(p => p.status !== 'Normal' || ['Sacrum', 'Left Heel', 'Right Heel'].includes(p.area));
-  };
-
-  const pressurePoints = generatePressurePoints(patient);
 
   // Update timestamp every second when live
   useEffect(() => {
@@ -72,19 +27,6 @@ function ThermographyView({ patient }) {
     }
   }, [isLive, cameraUrl]);
 
-  const getTemperatureColor = (temp) => {
-    if (temp >= 38.5) return { bg: 'bg-red-500', text: 'text-red-600', label: 'Hot Spot' };
-    if (temp >= 37.5) return { bg: 'bg-orange-500', text: 'text-orange-600', label: 'Elevated' };
-    if (temp >= 37.0) return { bg: 'bg-amber-500', text: 'text-amber-600', label: 'Warm' };
-    return { bg: 'bg-emerald-500', text: 'text-emerald-600', label: 'Normal' };
-  };
-
-  const getStatusColor = (status) => {
-    if (status.includes('Stage')) return 'bg-red-500 text-white';
-    if (status === 'At Risk') return 'bg-amber-500 text-white';
-    return 'bg-emerald-500 text-white';
-  };
-
   const commonEndpoints = [
     '/', '/video', '/stream', '/mjpg/video.mjpg', '/video.mjpg', '/mjpeg', '/videostream.cgi', '/?action=stream'
   ];
@@ -102,7 +44,6 @@ function ThermographyView({ patient }) {
 
   const handleRetry = () => {
     setImageError(false);
-    // Force re-render by toggling live off/on
     setIsLive(false);
     setTimeout(() => setIsLive(true), 100);
   };
@@ -153,7 +94,7 @@ function ThermographyView({ patient }) {
 
       {/* Main Content */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Camera Feed - Direct img tag for MJPEG stream */}
+        {/* Camera Feed */}
         <div className="relative rounded-xl overflow-hidden bg-slate-900 border border-slate-300 shadow-lg min-h-[350px]">
           {isLive && !imageError ? (
             <>
@@ -223,78 +164,9 @@ function ThermographyView({ patient }) {
           )}
         </div>
 
-        {/* Pressure Points Analysis */}
-        <div className="space-y-4">
-          <h4 className="font-display font-semibold text-slate-800 flex items-center gap-2">
-            <svg className="w-5 h-5 text-clinical-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            Pressure Point Analysis / 압력 부위 분석
-          </h4>
-
-          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-            {pressurePoints.map((point, index) => {
-              const tempInfo = getTemperatureColor(point.temperature);
-              return (
-                <div 
-                  key={index}
-                  className={`p-4 rounded-xl border transition-all hover:scale-[1.01] hover:shadow-md ${
-                    point.status !== 'Normal' 
-                      ? 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200' 
-                      : 'bg-slate-50 border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <span className={`w-3 h-3 rounded-full ${tempInfo.bg}`}></span>
-                      <span className="font-medium text-slate-800">{point.area}</span>
-                    </div>
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getStatusColor(point.status)}`}>
-                      {point.status}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                      <span className={`font-mono font-bold text-lg ${tempInfo.text}`}>
-                        {point.temperature.toFixed(1)}°C
-                      </span>
-                    </div>
-                    <span className={`text-xs ${tempInfo.text}`}>{tempInfo.label}</span>
-                  </div>
-
-                  <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full ${tempInfo.bg} transition-all duration-500`}
-                      style={{ width: `${Math.min(100, ((point.temperature - 35) / 5) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Alert Summary */}
-          {pressurePoints.some(p => p.status !== 'Normal') && (
-            <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200">
-              <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-orange-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                <div>
-                  <p className="text-orange-700 font-medium text-sm">
-                    {pressurePoints.filter(p => p.status !== 'Normal').length} area(s) need attention
-                  </p>
-                  <p className="text-slate-500 text-xs mt-1">
-                    Check marked pressure points and reposition patient as needed.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+        {/* Right Side Content - Care Instructions passed as children */}
+        <div className="flex flex-col min-h-[350px]">
+          {children}
         </div>
       </div>
 

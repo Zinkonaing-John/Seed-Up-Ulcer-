@@ -242,17 +242,11 @@ function PatientDetail() {
           </div>
         </div>
 
-        {/* Right Column - Thermography & Care Instructions */}
-        <div className="xl:col-span-2 space-y-6">
-          {/* Thermography Camera */}
-          <div className="animate-slide-up delay-200">
-            <ThermographyView patient={patient} />
-          </div>
-
-          {/* Care Instructions */}
-          <div className="glass rounded-2xl p-6 animate-slide-up delay-300">
+        {/* Right Column - Thermography with Care Instructions */}
+        <div className="xl:col-span-2 animate-slide-up delay-200">
+          <ThermographyView patient={patient}>
             <CareInstructions patient={patient} />
-          </div>
+          </ThermographyView>
         </div>
       </div>
 

@@ -1,13 +1,13 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { getRiskLevel, getRiskConfig, getMobilityStatus, getSkinCondition } from '../data/patients';
+import { getRiskLevel, getRiskConfig, getActivityStatus, getSkinCondition } from '../data/patients';
 
 function PatientCard({ patient, isSelected, onClick, onViewDetails, onDelete, delay }) {
   const { t, language } = useLanguage();
   const riskLevel = getRiskLevel(patient.riskScore);
   const config = getRiskConfig(riskLevel);
   const scorePercentage = Math.round(patient.riskScore * 100);
-  const mobilityStatus = getMobilityStatus(patient.mobility);
+  const activityStatus = getActivityStatus(patient.activity);
   const skinCondition = getSkinCondition(patient);
 
   const handleNameClick = (e) => {
@@ -71,43 +71,58 @@ function PatientCard({ patient, isSelected, onClick, onViewDetails, onDelete, de
                 </svg>
               </h3>
               <p className="text-slate-500 text-sm">
-                {t('room')} {patient.room} • {patient.age}{t('years')} • {patient.gender === 'M' ? t('male') : t('female')}
+                {language === 'ko' ? '병실' : 'Room'} {patient.room_number} • {patient.age}{language === 'ko' ? '세' : ' yrs'} • {patient.gender === 'M' ? (language === 'ko' ? '남' : 'M') : (language === 'ko' ? '여' : 'F')}
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 mt-4">
             <div>
-              <span className="text-xs text-slate-400 uppercase tracking-wider">{t('bradenScore')}</span>
+              <span className="text-xs text-slate-400 uppercase tracking-wider">
+                {language === 'ko' ? '브레이든 점수' : 'Braden Score'}
+              </span>
               <p className={`font-mono font-bold text-lg mt-0.5 ${config.textDark}`}>
-                {patient.bradenScore}/23
+                {patient.bradenScore}/12
               </p>
             </div>
             <div>
-              <span className="text-xs text-slate-400 uppercase tracking-wider">{t('ulcerStatus')}</span>
+              <span className="text-xs text-slate-400 uppercase tracking-wider">
+                {language === 'ko' ? '욕창 상태' : 'Ulcer Status'}
+              </span>
               <p className={`text-sm mt-0.5 ${patient.has_ulcer ? 'text-red-600 font-medium' : 'text-emerald-600'}`}>
-                {patient.has_ulcer ? `${t('stage')} ${patient.ulcer_stage}` : t('none')}
+                {patient.has_ulcer ? `Stage ${patient.ulcer_stage}` : (language === 'ko' ? '없음' : 'None')}
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 mt-3">
             <div>
-              <span className="text-xs text-slate-400 uppercase tracking-wider">{t('mobility')}</span>
-              <p className="text-slate-700 text-sm mt-0.5">{mobilityStatus}</p>
+              <span className="text-xs text-slate-400 uppercase tracking-wider">
+                {language === 'ko' ? '활동' : 'Activity'}
+              </span>
+              <p className="text-slate-700 text-sm mt-0.5">{activityStatus}</p>
             </div>
             <div>
-              <span className="text-xs text-slate-400 uppercase tracking-wider">{t('skin')}</span>
-              <p className="text-slate-700 text-sm mt-0.5 truncate" title={skinCondition}>{skinCondition}</p>
+              <span className="text-xs text-slate-400 uppercase tracking-wider">
+                {language === 'ko' ? '진단' : 'Diagnosis'}
+              </span>
+              <p className="text-slate-700 text-sm mt-0.5 truncate" title={patient.diagnosis}>{patient.diagnosis || '-'}</p>
             </div>
           </div>
 
           <div className="flex items-center justify-between mt-4">
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              {t('lastAssessed')}: {patient.lastAssessment}
+            <div className="flex items-center gap-4 text-xs text-slate-400">
+              {patient.blood_pressure && (
+                <span className="flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  {patient.blood_pressure}
+                </span>
+              )}
+              {patient.weight_kg && (
+                <span>{patient.weight_kg}kg</span>
+              )}
             </div>
             
             {/* View Details Button */}
@@ -136,7 +151,6 @@ function PatientCard({ patient, isSelected, onClick, onViewDetails, onDelete, de
           </div>
           
           <div className="relative w-20 h-20 mx-auto">
-            {/* Background circle */}
             <svg className="w-20 h-20 transform -rotate-90">
               <circle
                 cx="40"
@@ -165,7 +179,7 @@ function PatientCard({ patient, isSelected, onClick, onViewDetails, onDelete, de
               </span>
             </div>
           </div>
-          <p className="text-xs text-slate-400 mt-1">{t('riskScore')}</p>
+          <p className="text-xs text-slate-400 mt-1">{language === 'ko' ? '위험도' : 'Risk'}</p>
         </div>
       </div>
 

@@ -1,31 +1,63 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { getMobilityStatus, getSkinCondition } from '../data/patients';
+import { getActivityStatus, getSkinCondition } from '../data/patients';
 
 // Backend LLM API Configuration
 const LLM_API_URL = 'http://localhost:5000/api/care-recommendations';
 const MAX_TOKENS = 200;
 
 function CareInstructions({ patient }) {
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const [aiResponse, setAiResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const labels = {
+    ko: {
+      title: 'AI 케어 권장사항',
+      room: '병실',
+      bradenScore: '브레이든 점수',
+      generating: '권장사항 생성 중...',
+      offline: '오프라인 권장사항 사용 중',
+      backendError: '백엔드 사용 불가',
+      maxTokens: '최대 토큰',
+      verify: '항상 임상적 판단으로 확인하세요',
+      clickRefresh: '새로고침을 클릭하여 권장사항을 생성하세요',
+      selectPatient: '환자를 선택하여 케어 지침을 확인하세요',
+    },
+    en: {
+      title: 'AI Care Recommendations',
+      room: 'Room',
+      bradenScore: 'Braden Score',
+      generating: 'Generating recommendations...',
+      offline: 'Using offline recommendations',
+      backendError: 'Backend unavailable',
+      maxTokens: 'Max tokens',
+      verify: 'Always verify with clinical judgment',
+      clickRefresh: 'Click refresh to generate recommendations',
+      selectPatient: 'Select a patient to view care instructions',
+    },
+  };
+
+  const t = labels[language] || labels.en;
 
   // Build prompt for LLM
   const buildPrompt = useCallback((patient) => {
     const lang = language === 'ko' ? 'Korean' : 'English';
     return `You are a clinical assistant AI for pressure ulcer prevention. Provide a brief, actionable care summary for nursing staff in ${lang}.
 
-Patient: ${patient.name}, ${patient.age}${language === 'ko' ? '세' : ' years'}, ${patient.gender === 'M' ? (language === 'ko' ? '남성' : 'Male') : (language === 'ko' ? '여성' : 'Female')}
-Room: ${patient.room}
-Braden Score: ${patient.bradenScore}/23
-Risk Level: ${patient.riskScore >= 0.8 ? 'Critical' : patient.riskScore >= 0.6 ? 'High' : patient.riskScore >= 0.4 ? 'Moderate' : 'Low'}
-Mobility: ${getMobilityStatus(patient.mobility)}
-Skin Condition: ${getSkinCondition(patient)}
+Patient: ${patient.name}, ${patient.age}${language === 'ko' ? '세' : ' years'}, ${patient.gender === 'M' ? 'Male' : 'Female'}
+Room: ${patient.room_number}
+Diagnosis: ${patient.diagnosis || 'Not specified'}
+Braden Score: ${patient.bradenScore}/12 (Sensory: ${patient.sensory_perception}/4, Moisture: ${patient.moisture}/4, Activity: ${patient.activity}/4)
+Risk Level: ${patient.riskScore >= 0.7 ? 'Critical' : patient.riskScore >= 0.5 ? 'High' : patient.riskScore >= 0.3 ? 'Moderate' : 'Low'}
+Activity: ${getActivityStatus(patient.activity)}
+Skin: ${getSkinCondition(patient)}
 Has Ulcer: ${patient.has_ulcer ? `Yes - Stage ${patient.ulcer_stage} at ${patient.ulcer_location}` : 'No'}
+Blood Pressure: ${patient.blood_pressure || 'Not recorded'}
+${patient.notes ? `Notes: ${patient.notes}` : ''}
 
-Provide concise care recommendations in ${lang}. Focus on immediate actionable steps for nursing staff. Be specific and urgent if risk is high.`;
+Provide concise care recommendations in ${lang}. Focus on immediate actionable steps for nursing staff.`;
   }, [language]);
 
   // Fetch AI recommendations from backend
@@ -38,9 +70,7 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
     try {
       const response = await fetch(LLM_API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: buildPrompt(patient),
           max_tokens: MAX_TOKENS,
@@ -50,10 +80,11 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
             name: patient.name,
             age: patient.age,
             gender: patient.gender,
-            room: patient.room,
+            room_number: patient.room_number,
+            diagnosis: patient.diagnosis,
             bradenScore: patient.bradenScore,
             riskScore: patient.riskScore,
-            mobility: patient.mobility,
+            activity: patient.activity,
             has_ulcer: patient.has_ulcer,
             ulcer_stage: patient.ulcer_stage,
             ulcer_location: patient.ulcer_location,
@@ -61,9 +92,7 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
       const data = await response.json();
       setAiResponse(data.recommendation || data.response || data.message || (language === 'ko' ? 'AI 응답이 없습니다.' : 'No response from AI.'));
@@ -78,12 +107,12 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
 
   // Local fallback if backend is unavailable
   const generateLocalFallback = useCallback(() => {
-    const bradenScore = patient?.bradenScore || 23;
+    const bradenScore = patient?.bradenScore || 12;
     
     let response = '';
     
     if (language === 'ko') {
-      if (bradenScore <= 12 || patient?.has_ulcer) {
+      if (bradenScore <= 6 || patient?.has_ulcer) {
         response = `⚠️ 고위험 환자 - 즉각적인 조치 필요\n\n`;
         response += `• 2시간마다 체위 변경 필수\n`;
         response += `• 모든 압력 부위 피부 상태 확인\n`;
@@ -91,8 +120,12 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
         if (patient?.has_ulcer) {
           response += `• 욕창 상태 기록 및 상처 관리팀 보고\n`;
         }
-        response += `• 피부를 깨끗하고 건조하게 유지\n`;
-        response += `• 영양 및 수분 섭취 모니터링\n`;
+        if (patient?.moisture <= 2) {
+          response += `• 피부를 깨끗하고 건조하게 유지\n`;
+        }
+        if (patient?.activity <= 2) {
+          response += `• 가능한 범위 내 운동 격려\n`;
+        }
       } else {
         response = `✓ 저위험 환자 - 표준 케어 프로토콜\n\n`;
         response += `• 정기적인 체위 변경 유지\n`;
@@ -100,8 +133,11 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
         response += `• 적절한 영양 및 수분 공급 확인\n`;
         response += `• 활동 및 이동성 격려\n`;
       }
+      if (patient?.notes) {
+        response += `\n📋 특이사항: ${patient.notes}\n`;
+      }
     } else {
-      if (bradenScore <= 12 || patient?.has_ulcer) {
+      if (bradenScore <= 6 || patient?.has_ulcer) {
         response = `⚠️ HIGH RISK - Immediate attention required\n\n`;
         response += `• Reposition patient every 2 hours\n`;
         response += `• Check all pressure points for skin changes\n`;
@@ -109,14 +145,21 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
         if (patient?.has_ulcer) {
           response += `• Document ulcer status and notify wound care team\n`;
         }
-        response += `• Keep skin clean and dry\n`;
-        response += `• Monitor nutrition and hydration\n`;
+        if (patient?.moisture <= 2) {
+          response += `• Keep skin clean and dry\n`;
+        }
+        if (patient?.activity <= 2) {
+          response += `• Encourage range of motion exercises\n`;
+        }
       } else {
         response = `✓ LOW RISK - Standard care protocol\n\n`;
         response += `• Continue regular repositioning schedule\n`;
         response += `• Maintain daily skin inspections\n`;
         response += `• Ensure adequate nutrition and hydration\n`;
         response += `• Encourage activity and mobility\n`;
+      }
+      if (patient?.notes) {
+        response += `\n📋 Notes: ${patient.notes}\n`;
       }
     }
     
@@ -132,22 +175,20 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
 
   if (!patient) {
     return (
-      <div className="text-center py-12 text-slate-500">
-        {language === 'ko' ? '환자를 선택하여 케어 지침을 확인하세요' : 'Select a patient to view care instructions'}
-      </div>
+      <div className="text-center py-12 text-slate-500">{t.selectPatient}</div>
     );
   }
 
   const getRiskLevel = (bradenScore) => {
     if (language === 'ko') {
-      if (bradenScore <= 9) return { label: '위험', color: 'text-red-600', bg: 'bg-red-100' };
-      if (bradenScore <= 12) return { label: '높음', color: 'text-orange-600', bg: 'bg-orange-100' };
-      if (bradenScore <= 14) return { label: '중간', color: 'text-amber-600', bg: 'bg-amber-100' };
+      if (bradenScore <= 4) return { label: '위험', color: 'text-red-600', bg: 'bg-red-100' };
+      if (bradenScore <= 6) return { label: '높음', color: 'text-orange-600', bg: 'bg-orange-100' };
+      if (bradenScore <= 8) return { label: '중간', color: 'text-amber-600', bg: 'bg-amber-100' };
       return { label: '낮음', color: 'text-emerald-600', bg: 'bg-emerald-100' };
     }
-    if (bradenScore <= 9) return { label: 'CRITICAL', color: 'text-red-600', bg: 'bg-red-100' };
-    if (bradenScore <= 12) return { label: 'HIGH', color: 'text-orange-600', bg: 'bg-orange-100' };
-    if (bradenScore <= 14) return { label: 'MODERATE', color: 'text-amber-600', bg: 'bg-amber-100' };
+    if (bradenScore <= 4) return { label: 'CRITICAL', color: 'text-red-600', bg: 'bg-red-100' };
+    if (bradenScore <= 6) return { label: 'HIGH', color: 'text-orange-600', bg: 'bg-orange-100' };
+    if (bradenScore <= 8) return { label: 'MODERATE', color: 'text-amber-600', bg: 'bg-amber-100' };
     return { label: 'LOW', color: 'text-emerald-600', bg: 'bg-emerald-100' };
   };
 
@@ -163,20 +204,12 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <div>
-            <h2 className="font-display text-lg font-semibold text-slate-800">
-              {t('aiCareRecommendations')}
-            </h2>
-          </div>
+          <h2 className="font-display text-lg font-semibold text-slate-800">{t.title}</h2>
         </div>
         
-        {/* Refresh button */}
-        <button
-          onClick={fetchAIRecommendations}
-          disabled={isLoading}
+        <button onClick={fetchAIRecommendations} disabled={isLoading}
           className="p-2 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors disabled:opacity-50"
-          title={language === 'ko' ? '새로고침' : 'Refresh'}
-        >
+          title={language === 'ko' ? '새로고침' : 'Refresh'}>
           <svg className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
@@ -187,7 +220,7 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
       <div className="flex items-center justify-between mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
         <div>
           <p className="font-medium text-slate-800">{patient.name}</p>
-          <p className="text-xs text-slate-500">{t('room')} {patient.room} • {t('bradenScore')}: {patient.bradenScore}/23</p>
+          <p className="text-xs text-slate-500">{t.room} {patient.room_number} • {t.bradenScore}: {patient.bradenScore}/12</p>
         </div>
         <div className={`px-3 py-1.5 rounded-lg ${risk.bg} ${risk.color} font-bold text-sm`}>
           {risk.label}
@@ -199,7 +232,7 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full py-8">
             <div className="w-10 h-10 border-4 border-clinical-200 border-t-clinical-600 rounded-full animate-spin mb-4"></div>
-            <p className="text-slate-500 text-sm">{t('generatingRecommendations')}</p>
+            <p className="text-slate-500 text-sm">{t.generating}</p>
           </div>
         ) : error ? (
           <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
@@ -208,26 +241,24 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
               <div>
-                <p className="text-amber-700 font-medium text-sm">{t('usingOfflineRecommendations')}</p>
-                <p className="text-amber-600 text-xs mt-1">{t('backendUnavailable')}: {error}</p>
+                <p className="text-amber-700 font-medium text-sm">{t.offline}</p>
+                <p className="text-amber-600 text-xs mt-1">{t.backendError}: {error}</p>
               </div>
             </div>
             {aiResponse && (
               <div className="mt-4 p-4 bg-white rounded-lg border border-slate-200">
-                <pre className="whitespace-pre-wrap text-slate-700 text-sm font-sans leading-relaxed">
-                  {aiResponse}
-                </pre>
+                <pre className="whitespace-pre-wrap text-slate-700 text-sm font-sans leading-relaxed">{aiResponse}</pre>
               </div>
             )}
           </div>
         ) : (
           <div className={`p-4 rounded-xl border ${
-            patient.bradenScore <= 12 || patient.has_ulcer 
+            patient.bradenScore <= 6 || patient.has_ulcer 
               ? 'bg-gradient-to-br from-red-50 to-orange-50 border-red-200' 
               : 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200'
           }`}>
             <pre className="whitespace-pre-wrap text-slate-700 text-sm font-sans leading-relaxed">
-              {aiResponse || t('clickRefresh')}
+              {aiResponse || t.clickRefresh}
             </pre>
           </div>
         )}
@@ -236,7 +267,7 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
       {/* Footer */}
       <div className="mt-4 pt-3 border-t border-slate-200">
         <p className="text-xs text-slate-400 italic">
-          {t('maxTokens')}: {MAX_TOKENS} • {t('verifyWithClinicalJudgment')}
+          {t.maxTokens}: {MAX_TOKENS} • {t.verify}
         </p>
       </div>
     </div>

@@ -9,7 +9,7 @@ export const generatePatientId = () => {
   return id;
 };
 
-// Braden Scale descriptions
+// Braden Scale descriptions (3 items now)
 export const bradenScaleDescriptions = {
   sensory_perception: {
     label: 'Sensory Perception',
@@ -41,35 +41,6 @@ export const bradenScaleDescriptions = {
       { value: 4, label: 'Walks Frequently', labelKr: '자주 보행' },
     ],
   },
-  mobility: {
-    label: 'Mobility',
-    labelKr: '기동력',
-    options: [
-      { value: 1, label: 'Completely Immobile', labelKr: '전혀 움직이지 못함' },
-      { value: 2, label: 'Very Limited', labelKr: '매우 제한적' },
-      { value: 3, label: 'Slightly Limited', labelKr: '약간 제한적' },
-      { value: 4, label: 'No Limitations', labelKr: '제한 없음' },
-    ],
-  },
-  nutrition: {
-    label: 'Nutrition',
-    labelKr: '영양 상태',
-    options: [
-      { value: 1, label: 'Very Poor', labelKr: '매우 불량' },
-      { value: 2, label: 'Probably Inadequate', labelKr: '불충분' },
-      { value: 3, label: 'Adequate', labelKr: '적절함' },
-      { value: 4, label: 'Excellent', labelKr: '우수함' },
-    ],
-  },
-  friction_shear: {
-    label: 'Friction & Shear',
-    labelKr: '마찰/밀림',
-    options: [
-      { value: 1, label: 'Problem', labelKr: '문제 있음' },
-      { value: 2, label: 'Potential Problem', labelKr: '잠재적 문제' },
-      { value: 3, label: 'No Apparent Problem', labelKr: '문제 없음' },
-    ],
-  },
 };
 
 // Ulcer stages
@@ -99,139 +70,143 @@ export const ulcerLocations = [
   'Other',
 ];
 
-// Calculate Braden Score from individual items
+// Calculate Braden Score from 3 items (max 12)
 export const calculateBradenScore = (patient) => {
   return (
     (patient.sensory_perception || 0) +
     (patient.moisture || 0) +
-    (patient.activity || 0) +
-    (patient.mobility || 0) +
-    (patient.nutrition || 0) +
-    (patient.friction_shear || 0)
+    (patient.activity || 0)
   );
 };
 
 // Calculate risk score (0-1) based on Braden Score
-// Braden Score: 6-23, lower = higher risk
+// Braden Score: 3-12, lower = higher risk
 export const calculateRiskScore = (bradenScore) => {
   // Convert Braden Score to risk percentage (inverted)
-  // Score 6 = 100% risk, Score 23 = 0% risk
-  const risk = Math.max(0, Math.min(1, (23 - bradenScore) / 17));
+  // Score 3 = 100% risk, Score 12 = 0% risk
+  const risk = Math.max(0, Math.min(1, (12 - bradenScore) / 9));
   return Math.round(risk * 100) / 100;
 };
 
 // Sample patient data matching DB schema
-export const patientsData = [
+export let patientsData = [
   {
     id: 1,
     name: 'Eleanor Mitchell',
     age: 78,
     gender: 'F',
-    // Braden Scale
+    // Physical info
+    height_cm: 162.5,
+    weight_kg: 58.0,
+    blood_pressure: '128/82',
+    // Ward related
+    room_number: '204A',
+    diagnosis: 'Hip fracture post-surgery',
+    notes: 'Allergic to Penicillin. Requires assistance with mobility.',
+    // Braden Scale (3 items)
     sensory_perception: 2,
     moisture: 2,
     activity: 1,
-    mobility: 1,
-    nutrition: 2,
-    friction_shear: 1,
     // Ulcer status
     has_ulcer: true,
     ulcer_stage: '1',
     ulcer_location: 'Sacrum',
     created_at: '2024-11-28T08:30:00',
-    // Additional display fields
-    room: '204A',
-    lastAssessment: '2 hours ago',
   },
   {
     id: 2,
     name: 'Robert Chen',
     age: 65,
     gender: 'M',
+    height_cm: 175.0,
+    weight_kg: 75.5,
+    blood_pressure: '135/85',
+    room_number: '118B',
+    diagnosis: 'Pneumonia, recovering',
+    notes: '',
     sensory_perception: 3,
     moisture: 2,
     activity: 2,
-    mobility: 2,
-    nutrition: 3,
-    friction_shear: 2,
     has_ulcer: false,
     ulcer_stage: null,
     ulcer_location: null,
     created_at: '2024-12-01T10:15:00',
-    room: '118B',
-    lastAssessment: '4 hours ago',
   },
   {
     id: 3,
     name: 'Maria Santos',
     age: 82,
     gender: 'F',
+    height_cm: 158.0,
+    weight_kg: 60.0,
+    blood_pressure: '140/90',
+    room_number: '305',
+    diagnosis: 'Stroke, left hemiplegia',
+    notes: 'Allergic to Latex. High fall risk.',
     sensory_perception: 1,
     moisture: 1,
     activity: 1,
-    mobility: 1,
-    nutrition: 2,
-    friction_shear: 1,
     has_ulcer: true,
     ulcer_stage: '2',
     ulcer_location: 'Sacrum, Left Heel',
     created_at: '2024-11-25T14:00:00',
-    room: '305',
-    lastAssessment: '1 hour ago',
   },
   {
     id: 4,
     name: 'James Wilson',
     age: 71,
     gender: 'M',
+    height_cm: 180.0,
+    weight_kg: 80.0,
+    blood_pressure: '130/80',
+    room_number: '112A',
+    diagnosis: 'Diabetes Mellitus',
+    notes: '',
     sensory_perception: 4,
     moisture: 3,
     activity: 2,
-    mobility: 3,
-    nutrition: 3,
-    friction_shear: 2,
     has_ulcer: false,
     ulcer_stage: null,
     ulcer_location: null,
     created_at: '2024-12-02T09:45:00',
-    room: '112A',
-    lastAssessment: '3 hours ago',
   },
   {
     id: 5,
     name: 'Dorothy Nguyen',
     age: 88,
     gender: 'F',
+    height_cm: 155.0,
+    weight_kg: 55.0,
+    blood_pressure: '120/78',
+    room_number: '220',
+    diagnosis: 'Dementia, mild',
+    notes: 'Needs frequent orientation. Wanders at night.',
     sensory_perception: 3,
     moisture: 2,
     activity: 2,
-    mobility: 2,
-    nutrition: 2,
-    friction_shear: 2,
     has_ulcer: false,
     ulcer_stage: null,
     ulcer_location: null,
     created_at: '2024-11-30T11:20:00',
-    room: '220',
-    lastAssessment: '5 hours ago',
   },
   {
     id: 6,
     name: 'William Brown',
     age: 69,
     gender: 'M',
+    height_cm: 170.0,
+    weight_kg: 90.0,
+    blood_pressure: '125/80',
+    room_number: '301B',
+    diagnosis: 'Post-op knee replacement',
+    notes: '',
     sensory_perception: 4,
     moisture: 4,
     activity: 3,
-    mobility: 4,
-    nutrition: 4,
-    friction_shear: 3,
     has_ulcer: false,
     ulcer_stage: null,
     ulcer_location: null,
     created_at: '2024-12-03T07:30:00',
-    room: '301B',
-    lastAssessment: '2 hours ago',
   },
 ];
 
@@ -262,18 +237,23 @@ export const createPatient = (patientData) => {
     name: patientData.name,
     age: patientData.age,
     gender: patientData.gender || 'M',
+    // Physical info
+    height_cm: patientData.height_cm || null,
+    weight_kg: patientData.weight_kg || null,
+    blood_pressure: patientData.blood_pressure || '',
+    // Ward related
+    room_number: patientData.room_number || '',
+    diagnosis: patientData.diagnosis || '',
+    notes: patientData.notes || '',
+    // Braden Scale
     sensory_perception: patientData.sensory_perception || 4,
     moisture: patientData.moisture || 4,
     activity: patientData.activity || 4,
-    mobility: patientData.mobility || 4,
-    nutrition: patientData.nutrition || 4,
-    friction_shear: patientData.friction_shear || 3,
+    // Ulcer status
     has_ulcer: patientData.has_ulcer || false,
     ulcer_stage: patientData.ulcer_stage || null,
     ulcer_location: patientData.ulcer_location || null,
     created_at: new Date().toISOString(),
-    room: patientData.room || '',
-    lastAssessment: 'Just now',
   };
   patientsData.unshift(newPatient);
   return {
@@ -310,19 +290,18 @@ export const deletePatient = (id) => {
 
 // Get risk level from risk score
 export const getRiskLevel = (riskScore) => {
-  if (riskScore >= 0.8) return 'critical';
-  if (riskScore >= 0.6) return 'high';
-  if (riskScore >= 0.4) return 'moderate';
+  if (riskScore >= 0.7) return 'critical';
+  if (riskScore >= 0.5) return 'high';
+  if (riskScore >= 0.3) return 'moderate';
   return 'low';
 };
 
-// Get risk level from Braden Score directly
+// Get risk level from Braden Score directly (3 items, max 12)
 export const getRiskLevelFromBraden = (bradenScore) => {
-  if (bradenScore <= 9) return 'critical';   // Very High Risk
-  if (bradenScore <= 12) return 'high';      // High Risk
-  if (bradenScore <= 14) return 'moderate';  // Moderate Risk
-  if (bradenScore <= 18) return 'low';       // Mild Risk
-  return 'low';                               // No Risk
+  if (bradenScore <= 4) return 'critical';   // Very High Risk
+  if (bradenScore <= 6) return 'high';       // High Risk
+  if (bradenScore <= 8) return 'moderate';   // Moderate Risk
+  return 'low';                               // Low Risk
 };
 
 // Risk config for styling
@@ -372,15 +351,15 @@ export const getRiskConfig = (level) => {
   return configs[level];
 };
 
-// Get mobility status text from mobility score
-export const getMobilityStatus = (mobilityScore) => {
+// Get activity status text from activity score
+export const getActivityStatus = (activityScore) => {
   const statuses = {
-    1: 'Completely Immobile',
-    2: 'Very Limited',
-    3: 'Slightly Limited',
-    4: 'No Limitations',
+    1: 'Bedfast',
+    2: 'Chairfast',
+    3: 'Walks Occasionally',
+    4: 'Walks Frequently',
   };
-  return statuses[mobilityScore] || 'Unknown';
+  return statuses[activityScore] || 'Unknown';
 };
 
 // Get skin condition based on ulcer data
@@ -390,4 +369,11 @@ export const getSkinCondition = (patient) => {
     return `Stage ${patient.ulcer_stage} - ${patient.ulcer_location || 'Location not specified'}`;
   }
   return 'At Risk';
+};
+
+// Calculate BMI
+export const calculateBMI = (height_cm, weight_kg) => {
+  if (!height_cm || !weight_kg) return null;
+  const heightM = height_cm / 100;
+  return (weight_kg / (heightM * heightM)).toFixed(1);
 };

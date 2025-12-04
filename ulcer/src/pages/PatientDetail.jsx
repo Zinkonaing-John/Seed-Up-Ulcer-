@@ -34,20 +34,11 @@ function PatientDetail() {
       edit: '수정',
       delete: '삭제',
       riskScore: '위험 점수',
-      patientInfo: '환자 정보',
+      patientInfo: '환자 상세 정보',
       registrationDate: '등록일',
-      diagnosis: '진단',
+      diagnosis: '진단명',
       notes: '특이사항',
-      activity: '활동',
-      physicalInfo: '신체 정보',
-      height: '키',
-      weight: '체중',
-      bmi: 'BMI',
-      bloodPressure: '혈압',
-      bradenScale: '브레이든 척도',
-      totalScore: '총점',
-      ulcerAlert: '욕창 경고',
-      stage: '단계',
+      activity: '활동 정도',
       room: '병실',
       male: '남성',
       female: '여성',
@@ -56,6 +47,19 @@ function PatientDetail() {
       retry: '다시 시도',
       saveFailed: '저장에 실패했습니다',
       deleteFailed: '삭제에 실패했습니다',
+      age: '나이',
+      gender: '성별',
+      height: '키',
+      weight: '체중',
+      bmi: 'BMI',
+      bloodPressure: '혈압',
+      sensoryPerception: '감각 인지',
+      moisture: '습기',
+      bradenScore: '브레이든 점수',
+      ulcerStatus: '욕창 상태',
+      ulcerLocation: '발생 부위',
+      stage: '단계',
+      noUlcer: '욕창 없음',
     },
     en: {
       notFound: 'Patient Not Found',
@@ -63,20 +67,11 @@ function PatientDetail() {
       edit: 'Edit',
       delete: 'Delete',
       riskScore: 'Risk Score',
-      patientInfo: 'Patient Information',
+      patientInfo: 'Patient Details',
       registrationDate: 'Registration Date',
       diagnosis: 'Diagnosis',
       notes: 'Notes',
-      activity: 'Activity',
-      physicalInfo: 'Physical Information',
-      height: 'Height',
-      weight: 'Weight',
-      bmi: 'BMI',
-      bloodPressure: 'Blood Pressure',
-      bradenScale: 'Braden Scale',
-      totalScore: 'Total Score',
-      ulcerAlert: 'Ulcer Alert',
-      stage: 'Stage',
+      activity: 'Activity Level',
       room: 'Room',
       male: 'Male',
       female: 'Female',
@@ -85,6 +80,19 @@ function PatientDetail() {
       retry: 'Retry',
       saveFailed: 'Failed to save changes',
       deleteFailed: 'Failed to delete patient',
+      age: 'Age',
+      gender: 'Gender',
+      height: 'Height',
+      weight: 'Weight',
+      bmi: 'BMI',
+      bloodPressure: 'Blood Pressure',
+      sensoryPerception: 'Sensory Perception',
+      moisture: 'Moisture',
+      bradenScore: 'Braden Score',
+      ulcerStatus: 'Ulcer Status',
+      ulcerLocation: 'Location',
+      stage: 'Stage',
+      noUlcer: 'No Ulcer',
     },
   };
 
@@ -198,12 +206,6 @@ function PatientDetail() {
     low: language === 'ko' ? '낮음' : 'LOW',
   };
 
-  const bradenLabels = {
-    sensory_perception: { ko: '감각 인지', en: 'Sensory' },
-    moisture: { ko: '습기', en: 'Moisture' },
-    activity: { ko: '활동', en: 'Activity' },
-  };
-
   return (
     <div className="min-h-screen p-6 lg:p-8 bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
@@ -267,118 +269,133 @@ function PatientDetail() {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Left Column - Patient Info */}
-        <div className="xl:col-span-1 space-y-6 animate-slide-up delay-100">
-          {/* Patient Details Card */}
+        {/* Left Column - Comprehensive Patient Info */}
+        <div className="xl:col-span-1 animate-slide-up delay-100">
           <div className="glass rounded-2xl p-6">
             <h2 className="font-display text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
               <svg className="w-5 h-5 text-clinical-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               {t.patientInfo}
             </h2>
             
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-slate-100 rounded-xl">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">{t.registrationDate}</p>
-                  <p className="text-slate-800 font-medium mt-1">{patient.created_at ? new Date(patient.created_at).toLocaleDateString() : '-'}</p>
+            <div className="space-y-3">
+              {/* Basic Info Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{t.age}</p>
+                  <p className="text-slate-800 font-bold text-lg">{patient.age}{language === 'ko' ? '세' : ' yrs'}</p>
                 </div>
-                <div className="p-3 bg-slate-100 rounded-xl">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">{t.activity}</p>
-                  <p className="text-slate-800 font-medium mt-1">{getActivityStatus(patient.activity)}</p>
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{t.gender}</p>
+                  <p className="text-slate-800 font-bold text-lg">{patient.gender === 'M' ? t.male : t.female}</p>
                 </div>
               </div>
 
-              <div className="p-3 bg-slate-100 rounded-xl">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">{t.diagnosis}</p>
-                <p className="text-slate-800 font-medium mt-1">{patient.diagnosis || '-'}</p>
-              </div>
-
-              {patient.notes && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                  <p className="text-xs text-amber-600 uppercase tracking-wider">{t.notes}</p>
-                  <p className="text-slate-700 mt-1 text-sm">{patient.notes}</p>
+              {/* Physical Data */}
+              {(patient.height_cm || patient.weight_kg || patient.blood_pressure) && (
+                <div className="grid grid-cols-3 gap-2">
+                  {patient.height_cm && (
+                    <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-xs text-blue-600 mb-0.5">{t.height}</p>
+                      <p className="text-slate-800 font-mono font-bold text-sm">{patient.height_cm}<span className="text-xs">cm</span></p>
+                    </div>
+                  )}
+                  {patient.weight_kg && (
+                    <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-xs text-blue-600 mb-0.5">{t.weight}</p>
+                      <p className="text-slate-800 font-mono font-bold text-sm">{patient.weight_kg}<span className="text-xs">kg</span></p>
+                    </div>
+                  )}
+                  {bmi && (
+                    <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-xs text-blue-600 mb-0.5">{t.bmi}</p>
+                      <p className="text-slate-800 font-mono font-bold text-sm">{bmi}</p>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {patient.has_ulcer && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-                  <p className="text-xs text-red-600 uppercase tracking-wider flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              {patient.blood_pressure && (
+                <div className="p-3 bg-rose-50 rounded-lg border border-rose-200">
+                  <p className="text-xs text-rose-600 uppercase tracking-wider mb-1">{t.bloodPressure}</p>
+                  <p className="text-slate-800 font-mono font-bold text-lg">{patient.blood_pressure}</p>
+                </div>
+              )}
+
+              {/* Braden Score Compact */}
+              <div className="p-3 bg-gradient-to-r from-clinical-50 to-clinical-100 rounded-lg border border-clinical-200">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-clinical-700 uppercase tracking-wider font-semibold">{t.bradenScore}</p>
+                  <p className={`font-mono font-bold text-xl ${config.textDark}`}>{patient.bradenScore}/12</p>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="bg-white/50 rounded p-2">
+                    <p className="text-slate-600 mb-0.5">{t.sensoryPerception}</p>
+                    <p className="font-bold text-clinical-700">{patient.sensory_perception}/4</p>
+                  </div>
+                  <div className="bg-white/50 rounded p-2">
+                    <p className="text-slate-600 mb-0.5">{t.moisture}</p>
+                    <p className="font-bold text-clinical-700">{patient.moisture}/4</p>
+                  </div>
+                  <div className="bg-white/50 rounded p-2">
+                    <p className="text-slate-600 mb-0.5">{t.activity}</p>
+                    <p className="font-bold text-clinical-700">{patient.activity}/4</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Activity & Registration */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{t.activity}</p>
+                  <p className="text-slate-800 font-medium text-sm">{getActivityStatus(patient.activity)}</p>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{t.registrationDate}</p>
+                  <p className="text-slate-800 font-medium text-sm">
+                    {patient.created_at ? new Date(patient.created_at).toLocaleDateString() : '-'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Diagnosis */}
+              {patient.diagnosis && (
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{t.diagnosis}</p>
+                  <p className="text-slate-800 font-medium">{patient.diagnosis}</p>
+                </div>
+              )}
+
+              {/* Notes */}
+              {patient.notes && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-xs text-amber-600 uppercase tracking-wider mb-1">{t.notes}</p>
+                  <p className="text-slate-700 text-sm">{patient.notes}</p>
+                </div>
+              )}
+
+              {/* Ulcer Status */}
+              {patient.has_ulcer ? (
+                <div className="p-4 bg-red-50 border-2 border-red-300 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
-                    {t.ulcerAlert}
+                    <p className="text-sm text-red-700 font-bold uppercase tracking-wider">{t.ulcerStatus}</p>
+                  </div>
+                  <p className="text-red-800 font-semibold text-lg mb-1">
+                    {t.stage} {patient.ulcer_stage}
                   </p>
-                  <p className="text-red-700 font-medium mt-1">
-                    {t.stage} {patient.ulcer_stage} - {patient.ulcer_location}
+                  <p className="text-red-700 text-sm">
+                    <span className="font-medium">{t.ulcerLocation}:</span> {patient.ulcer_location}
                   </p>
                 </div>
+              ) : (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-center">
+                  <p className="text-emerald-700 font-medium">✓ {t.noUlcer}</p>
+                </div>
               )}
-            </div>
-          </div>
-
-          {/* Physical Info */}
-          <div className="glass rounded-2xl p-6">
-            <h2 className="font-display text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-clinical-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-              {t.physicalInfo}
-            </h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-slate-100 rounded-xl">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">{t.height}</p>
-                <p className="text-slate-800 font-mono font-bold text-xl mt-1">{patient.height_cm || '-'} <span className="text-sm font-normal">cm</span></p>
-              </div>
-              <div className="p-4 bg-slate-100 rounded-xl">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">{t.weight}</p>
-                <p className="text-slate-800 font-mono font-bold text-xl mt-1">{patient.weight_kg || '-'} <span className="text-sm font-normal">kg</span></p>
-              </div>
-              <div className="p-4 bg-slate-100 rounded-xl">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">{t.bmi}</p>
-                <p className="text-slate-800 font-mono font-bold text-xl mt-1">{bmi || '-'}</p>
-              </div>
-              <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl">
-                <p className="text-xs text-rose-600 uppercase tracking-wider">{t.bloodPressure}</p>
-                <p className="text-slate-800 font-mono font-bold text-xl mt-1">{patient.blood_pressure || '-'}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Braden Scale */}
-          <div className="glass rounded-2xl p-6">
-            <h2 className="font-display text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-clinical-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              {t.bradenScale}
-            </h2>
-
-            <div className="mb-4 p-4 bg-gradient-to-r from-clinical-50 to-clinical-100 rounded-xl border border-clinical-200">
-              <div className="flex items-center justify-between">
-                <span className="text-clinical-700 font-medium">{t.totalScore}</span>
-                <span className={`font-mono font-bold text-2xl ${config.textDark}`}>{patient.bradenScore}/12</span>
-              </div>
-              <div className="mt-2 h-2 bg-clinical-200 rounded-full overflow-hidden">
-                <div className={`h-full ${config.badge} transition-all duration-500`}
-                  style={{ width: `${(patient.bradenScore / 12) * 100}%` }} />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {['sensory_perception', 'moisture', 'activity'].map((key) => {
-                const value = patient[key];
-                const isLow = value <= 2;
-                return (
-                  <div key={key} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                    <span className="text-sm font-medium text-slate-700">{bradenLabels[key][language]}</span>
-                    <span className={`inline-block px-2.5 py-1 rounded-lg text-sm font-bold ${isLow ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                      {value}/4
-                    </span>
-                  </div>
-                );
-              })}
             </div>
           </div>
         </div>

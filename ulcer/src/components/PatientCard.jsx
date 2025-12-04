@@ -76,20 +76,12 @@ function PatientCard({ patient, isSelected, onClick, onViewDetails, onDelete, de
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <div>
-              <span className="text-xs text-slate-400 uppercase tracking-wider">
-                {language === 'ko' ? '브레이든 점수' : 'Braden Score'}
-              </span>
-              <p className={`font-mono font-bold text-lg mt-0.5 ${config.textDark}`}>
-                {patient.bradenScore}/12
-              </p>
-            </div>
-            <div>
+          <div className="mt-4">
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
               <span className="text-xs text-slate-400 uppercase tracking-wider">
                 {language === 'ko' ? '욕창 상태' : 'Ulcer Status'}
               </span>
-              <p className={`text-sm mt-0.5 ${patient.has_ulcer ? 'text-red-600 font-medium' : 'text-emerald-600'}`}>
+              <p className={`text-base font-semibold mt-1 ${patient.has_ulcer ? 'text-red-600' : 'text-emerald-600'}`}>
                 {patient.has_ulcer ? `Stage ${patient.ulcer_stage}` : (language === 'ko' ? '없음' : 'None')}
               </p>
             </div>

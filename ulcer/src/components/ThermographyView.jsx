@@ -30,17 +30,26 @@ function ThermographyView({ patient, children }) {
   }, [isLive, cameraUrl]);
 
   const commonEndpoints = [
-    '/', '/video', '/stream', '/mjpg/video.mjpg', '/video.mjpg', '/mjpeg', '/videostream.cgi', '/?action=stream'
+    { path: '/', label: 'Base (/)' },
+    { path: '/video', label: '/video' },
+    { path: '/video.mjpg', label: '/video.mjpg' },
+    { path: '/video.mjpeg', label: '/video.mjpeg' },
+    { path: '/?action=stream', label: '/?action=stream' },
+    { path: '/mjpg/video.mjpg', label: '/mjpg/video.mjpg' },
+    { path: '/videostream.cgi', label: '/videostream.cgi' },
+    { path: '/cgi-bin/mjpeg', label: '/cgi-bin/mjpeg' },
   ];
 
   const handleUrlChange = (e) => {
     setCameraUrl(e.target.value);
   };
 
-  const handleTryEndpoint = (endpoint) => {
-    const fullUrl = `${BASE_CAMERA_IP}${endpoint}`;
+  const handleTryEndpoint = (path) => {
+    const fullUrl = `${BASE_CAMERA_IP}${path}`;
+    console.log('Trying camera endpoint:', fullUrl);
     setCameraUrl(fullUrl);
     setImageError(false);
+    setIsLive(true);
     setIsSettingsOpen(false);
   };
 
@@ -97,29 +106,36 @@ function ThermographyView({ patient, children }) {
       {/* Main Content */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Camera Feed */}
-        <div className="relative rounded-xl overflow-hidden bg-slate-900 border border-slate-300 shadow-lg min-h-[350px]">
+        <div className="relative rounded-xl overflow-hidden bg-slate-900 border border-slate-300 shadow-lg min-h-[350px] flex items-center justify-center">
           {isLive && !imageError ? (
             <>
-              {/* Live Camera Feed */}
+              {/* Live Camera Feed - MJPEG Stream */}
               <img 
+                key={cameraUrl + lastUpdate.getTime()}
                 src={cameraUrl}
                 alt="Live Camera Feed"
                 className="w-full h-full object-contain"
-                onError={() => setImageError(true)}
-                onLoad={() => setImageError(false)}
+                onError={(e) => {
+                  console.error('Camera stream error:', cameraUrl);
+                  setImageError(true);
+                }}
+                onLoad={() => {
+                  console.log('Camera stream loaded:', cameraUrl);
+                  setImageError(false);
+                }}
               />
               
               {/* Live indicator overlay */}
-              <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 px-3 py-1.5 rounded-lg">
+              <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 px-3 py-1.5 rounded-lg pointer-events-none z-10">
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                <span className="text-xs text-white font-mono">{t('live')}</span>
+                <span className="text-xs text-white font-mono uppercase font-bold">● REC</span>
               </div>
 
               {/* Timestamp overlay */}
-              <div className="absolute bottom-4 left-4 right-4">
+              <div className="absolute bottom-4 left-4 right-4 pointer-events-none z-10">
                 <div className="flex items-center justify-between text-xs text-white/80 font-mono bg-black/50 px-3 py-1.5 rounded-lg">
-                  <span>Camera: {cameraUrl}</span>
-                  <span>{lastUpdate.toLocaleTimeString()}</span>
+                  <span className="truncate mr-2">{cameraUrl}</span>
+                  <span className="whitespace-nowrap">{lastUpdate.toLocaleTimeString()}</span>
                 </div>
               </div>
             </>
@@ -200,16 +216,25 @@ function ThermographyView({ patient, children }) {
               />
             </div>
             
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs font-semibold text-blue-900 mb-1">💡 {t('troubleshooting') || 'Troubleshooting'}</p>
+              <ul className="text-xs text-blue-800 space-y-1">
+                <li>• {t('ensureCameraOn') || 'Ensure camera is powered on and connected'}</li>
+                <li>• {t('checkNetwork') || 'Check if device is on same network'}</li>
+                <li>• {t('tryEndpoints') || 'Try different endpoints below'}</li>
+              </ul>
+            </div>
+            
             <div className="mb-6">
-              <p className="text-sm font-medium text-slate-700 mb-2">{t('commonEndpoints')}</p>
-              <div className="grid grid-cols-2 gap-2">
-                {commonEndpoints.map(endpoint => (
+              <p className="text-sm font-medium text-slate-700 mb-2">{t('commonEndpoints')} (Base: {BASE_CAMERA_IP})</p>
+              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                {commonEndpoints.map((endpoint) => (
                   <button
-                    key={endpoint}
-                    onClick={() => handleTryEndpoint(endpoint)}
-                    className="p-2 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700 hover:bg-slate-200 hover:border-slate-300 transition-colors"
+                    key={endpoint.path}
+                    onClick={() => handleTryEndpoint(endpoint.path)}
+                    className="p-2 bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-700 hover:bg-clinical-100 hover:border-clinical-300 transition-colors text-left"
                   >
-                    {endpoint === '/' ? 'Base URL (/)' : endpoint}
+                    {endpoint.label}
                   </button>
                 ))}
               </div>

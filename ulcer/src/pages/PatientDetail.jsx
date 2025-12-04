@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { 
@@ -8,7 +8,6 @@ import {
   updatePatient, 
   deletePatient,
   getActivityStatus,
-  getSkinCondition,
   calculateBMI
 } from '../data/patients';
 import ThermographyView from '../components/ThermographyView';
@@ -24,6 +23,9 @@ function PatientDetail() {
   const [patient, setPatient] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const labels = {
     ko: {
@@ -36,22 +38,24 @@ function PatientDetail() {
       registrationDate: '등록일',
       diagnosis: '진단',
       notes: '특이사항',
+      activity: '활동',
       physicalInfo: '신체 정보',
       height: '키',
       weight: '체중',
       bmi: 'BMI',
       bloodPressure: '혈압',
       bradenScale: '브레이든 척도',
-      sensoryPerception: '감각 인지',
-      moisture: '습기',
-      activity: '활동 정도',
       totalScore: '총점',
       ulcerAlert: '욕창 경고',
       stage: '단계',
       room: '병실',
-      years: '세',
       male: '남성',
       female: '여성',
+      loading: '로딩 중...',
+      error: '환자 정보를 불러오는데 실패했습니다',
+      retry: '다시 시도',
+      saveFailed: '저장에 실패했습니다',
+      deleteFailed: '삭제에 실패했습니다',
     },
     en: {
       notFound: 'Patient Not Found',
@@ -63,32 +67,86 @@ function PatientDetail() {
       registrationDate: 'Registration Date',
       diagnosis: 'Diagnosis',
       notes: 'Notes',
+      activity: 'Activity',
       physicalInfo: 'Physical Information',
       height: 'Height',
       weight: 'Weight',
       bmi: 'BMI',
       bloodPressure: 'Blood Pressure',
       bradenScale: 'Braden Scale',
-      sensoryPerception: 'Sensory Perception',
-      moisture: 'Moisture',
-      activity: 'Activity',
       totalScore: 'Total Score',
       ulcerAlert: 'Ulcer Alert',
       stage: 'Stage',
       room: 'Room',
-      years: 'years',
       male: 'Male',
       female: 'Female',
+      loading: 'Loading...',
+      error: 'Failed to load patient data',
+      retry: 'Retry',
+      saveFailed: 'Failed to save changes',
+      deleteFailed: 'Failed to delete patient',
     },
   };
 
   const t = labels[language] || labels.en;
 
-  useEffect(() => {
-    const p = getPatientById(patientId);
-    setPatient(p);
-  }, [patientId]);
+  // Fetch patient data
+  const fetchPatient = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await getPatientById(patientId);
+      setPatient(data);
+    } catch (err) {
+      console.error('Failed to fetch patient:', err);
+      setError(err.message || t.error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [patientId, t.error]);
 
+  useEffect(() => {
+    fetchPatient();
+  }, [fetchPatient]);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-clinical-200 border-t-clinical-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-500">{t.loading}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold text-slate-800 mb-2">{t.error}</h1>
+          <p className="text-slate-500 mb-4">{error}</p>
+          <div className="flex gap-3 justify-center">
+            <button onClick={() => navigate('/')} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300">
+              {t.backToDashboard}
+            </button>
+            <button onClick={fetchPatient} className="px-4 py-2 bg-clinical-600 text-white rounded-lg hover:bg-clinical-700">
+              {t.retry}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Not found state
   if (!patient) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
@@ -103,16 +161,29 @@ function PatientDetail() {
     );
   }
 
-  const handleSavePatient = (updatedData) => {
-    const saved = updatePatient(patientId, updatedData);
-    if (saved) setPatient(saved);
-    setIsEditModalOpen(false);
+  const handleSavePatient = async (updatedData) => {
+    setIsSaving(true);
+    try {
+      const saved = await updatePatient(patientId, updatedData);
+      setPatient(saved);
+      setIsEditModalOpen(false);
+    } catch (err) {
+      console.error('Failed to update patient:', err);
+      alert(t.saveFailed);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDeletePatient = () => {
-    deletePatient(patient.id);
-    setIsDeleteModalOpen(false);
-    navigate('/');
+  const handleDeletePatient = async () => {
+    try {
+      await deletePatient(patient.id);
+      setIsDeleteModalOpen(false);
+      navigate('/');
+    } catch (err) {
+      console.error('Failed to delete patient:', err);
+      alert(t.deleteFailed);
+    }
   };
 
   const riskLevel = getRiskLevel(patient.riskScore);
@@ -175,8 +246,8 @@ function PatientDetail() {
               </div>
             </div>
 
-            <button onClick={() => setIsEditModalOpen(true)}
-              className="flex items-center gap-2 px-5 py-4 rounded-xl bg-gradient-to-r from-clinical-600 to-clinical-700 text-white font-medium hover:from-clinical-500 hover:to-clinical-600 transition-all shadow-lg shadow-clinical-200 hover:scale-105">
+            <button onClick={() => setIsEditModalOpen(true)} disabled={isSaving}
+              className="flex items-center gap-2 px-5 py-4 rounded-xl bg-gradient-to-r from-clinical-600 to-clinical-700 text-white font-medium hover:from-clinical-500 hover:to-clinical-600 transition-all shadow-lg shadow-clinical-200 hover:scale-105 disabled:opacity-50">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
@@ -211,7 +282,7 @@ function PatientDetail() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 bg-slate-100 rounded-xl">
                   <p className="text-xs text-slate-500 uppercase tracking-wider">{t.registrationDate}</p>
-                  <p className="text-slate-800 font-medium mt-1">{new Date(patient.created_at).toLocaleDateString()}</p>
+                  <p className="text-slate-800 font-medium mt-1">{patient.created_at ? new Date(patient.created_at).toLocaleDateString() : '-'}</p>
                 </div>
                 <div className="p-3 bg-slate-100 rounded-xl">
                   <p className="text-xs text-slate-500 uppercase tracking-wider">{t.activity}</p>
@@ -301,9 +372,7 @@ function PatientDetail() {
                 const isLow = value <= 2;
                 return (
                   <div key={key} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                    <span className="text-sm font-medium text-slate-700">
-                      {bradenLabels[key][language]}
-                    </span>
+                    <span className="text-sm font-medium text-slate-700">{bradenLabels[key][language]}</span>
                     <span className={`inline-block px-2.5 py-1 rounded-lg text-sm font-bold ${isLow ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'}`}>
                       {value}/4
                     </span>

@@ -1,15 +1,7 @@
-// Patient data matching MySQL database schema
+// Patient data layer - connects to Spring Boot backend
+import { patientAPI } from '../services/api';
 
-// Generate unique patient ID
-let patientCounter = 7;
-
-export const generatePatientId = () => {
-  const id = patientCounter;
-  patientCounter++;
-  return id;
-};
-
-// Braden Scale descriptions (3 items now)
+// ==================== Braden Scale Descriptions ====================
 export const bradenScaleDescriptions = {
   sensory_perception: {
     label: 'Sensory Perception',
@@ -43,7 +35,7 @@ export const bradenScaleDescriptions = {
   },
 };
 
-// Ulcer stages
+// ==================== Ulcer Constants ====================
 export const ulcerStages = [
   { value: null, label: 'None', labelKr: '없음' },
   { value: '1', label: 'Stage 1', labelKr: '1단계' },
@@ -54,21 +46,12 @@ export const ulcerStages = [
   { value: 'Unstageable', label: 'Unstageable', labelKr: '단계 미분류' },
 ];
 
-// Common ulcer locations
 export const ulcerLocations = [
-  'Sacrum',
-  'Left Heel',
-  'Right Heel',
-  'Left Trochanter',
-  'Right Trochanter',
-  'Coccyx',
-  'Left Ischium',
-  'Right Ischium',
-  'Left Elbow',
-  'Right Elbow',
-  'Occiput',
-  'Other',
+  'Sacrum', 'Left Heel', 'Right Heel', 'Left Trochanter', 'Right Trochanter',
+  'Coccyx', 'Left Ischium', 'Right Ischium', 'Left Elbow', 'Right Elbow', 'Occiput', 'Other',
 ];
+
+// ==================== Calculation Helpers ====================
 
 // Calculate Braden Score from 3 items (max 12)
 export const calculateBradenScore = (patient) => {
@@ -82,210 +65,8 @@ export const calculateBradenScore = (patient) => {
 // Calculate risk score (0-1) based on Braden Score
 // Braden Score: 3-12, lower = higher risk
 export const calculateRiskScore = (bradenScore) => {
-  // Convert Braden Score to risk percentage (inverted)
-  // Score 3 = 100% risk, Score 12 = 0% risk
   const risk = Math.max(0, Math.min(1, (12 - bradenScore) / 9));
   return Math.round(risk * 100) / 100;
-};
-
-// Sample patient data matching DB schema
-export let patientsData = [
-  {
-    id: 1,
-    name: 'Eleanor Mitchell',
-    age: 78,
-    gender: 'F',
-    // Physical info
-    height_cm: 162.5,
-    weight_kg: 58.0,
-    blood_pressure: '128/82',
-    // Ward related
-    room_number: '204A',
-    diagnosis: 'Hip fracture post-surgery',
-    notes: 'Allergic to Penicillin. Requires assistance with mobility.',
-    // Braden Scale (3 items)
-    sensory_perception: 2,
-    moisture: 2,
-    activity: 1,
-    // Ulcer status
-    has_ulcer: true,
-    ulcer_stage: '1',
-    ulcer_location: 'Sacrum',
-    created_at: '2024-11-28T08:30:00',
-  },
-  {
-    id: 2,
-    name: 'Robert Chen',
-    age: 65,
-    gender: 'M',
-    height_cm: 175.0,
-    weight_kg: 75.5,
-    blood_pressure: '135/85',
-    room_number: '118B',
-    diagnosis: 'Pneumonia, recovering',
-    notes: '',
-    sensory_perception: 3,
-    moisture: 2,
-    activity: 2,
-    has_ulcer: false,
-    ulcer_stage: null,
-    ulcer_location: null,
-    created_at: '2024-12-01T10:15:00',
-  },
-  {
-    id: 3,
-    name: 'Maria Santos',
-    age: 82,
-    gender: 'F',
-    height_cm: 158.0,
-    weight_kg: 60.0,
-    blood_pressure: '140/90',
-    room_number: '305',
-    diagnosis: 'Stroke, left hemiplegia',
-    notes: 'Allergic to Latex. High fall risk.',
-    sensory_perception: 1,
-    moisture: 1,
-    activity: 1,
-    has_ulcer: true,
-    ulcer_stage: '2',
-    ulcer_location: 'Sacrum, Left Heel',
-    created_at: '2024-11-25T14:00:00',
-  },
-  {
-    id: 4,
-    name: 'James Wilson',
-    age: 71,
-    gender: 'M',
-    height_cm: 180.0,
-    weight_kg: 80.0,
-    blood_pressure: '130/80',
-    room_number: '112A',
-    diagnosis: 'Diabetes Mellitus',
-    notes: '',
-    sensory_perception: 4,
-    moisture: 3,
-    activity: 2,
-    has_ulcer: false,
-    ulcer_stage: null,
-    ulcer_location: null,
-    created_at: '2024-12-02T09:45:00',
-  },
-  {
-    id: 5,
-    name: 'Dorothy Nguyen',
-    age: 88,
-    gender: 'F',
-    height_cm: 155.0,
-    weight_kg: 55.0,
-    blood_pressure: '120/78',
-    room_number: '220',
-    diagnosis: 'Dementia, mild',
-    notes: 'Needs frequent orientation. Wanders at night.',
-    sensory_perception: 3,
-    moisture: 2,
-    activity: 2,
-    has_ulcer: false,
-    ulcer_stage: null,
-    ulcer_location: null,
-    created_at: '2024-11-30T11:20:00',
-  },
-  {
-    id: 6,
-    name: 'William Brown',
-    age: 69,
-    gender: 'M',
-    height_cm: 170.0,
-    weight_kg: 90.0,
-    blood_pressure: '125/80',
-    room_number: '301B',
-    diagnosis: 'Post-op knee replacement',
-    notes: '',
-    sensory_perception: 4,
-    moisture: 4,
-    activity: 3,
-    has_ulcer: false,
-    ulcer_stage: null,
-    ulcer_location: null,
-    created_at: '2024-12-03T07:30:00',
-  },
-];
-
-// Get all patients with computed fields
-export const getAllPatients = () => {
-  return patientsData.map(patient => ({
-    ...patient,
-    bradenScore: calculateBradenScore(patient),
-    riskScore: calculateRiskScore(calculateBradenScore(patient)),
-  }));
-};
-
-// Get patient by ID with computed fields
-export const getPatientById = (id) => {
-  const patient = patientsData.find(p => p.id === parseInt(id) || p.id === id);
-  if (!patient) return null;
-  return {
-    ...patient,
-    bradenScore: calculateBradenScore(patient),
-    riskScore: calculateRiskScore(calculateBradenScore(patient)),
-  };
-};
-
-// Create new patient
-export const createPatient = (patientData) => {
-  const newPatient = {
-    id: generatePatientId(),
-    name: patientData.name,
-    age: patientData.age,
-    gender: patientData.gender || 'M',
-    // Physical info
-    height_cm: patientData.height_cm || null,
-    weight_kg: patientData.weight_kg || null,
-    blood_pressure: patientData.blood_pressure || '',
-    // Ward related
-    room_number: patientData.room_number || '',
-    diagnosis: patientData.diagnosis || '',
-    notes: patientData.notes || '',
-    // Braden Scale
-    sensory_perception: patientData.sensory_perception || 4,
-    moisture: patientData.moisture || 4,
-    activity: patientData.activity || 4,
-    // Ulcer status
-    has_ulcer: patientData.has_ulcer || false,
-    ulcer_stage: patientData.ulcer_stage || null,
-    ulcer_location: patientData.ulcer_location || null,
-    created_at: new Date().toISOString(),
-  };
-  patientsData.unshift(newPatient);
-  return {
-    ...newPatient,
-    bradenScore: calculateBradenScore(newPatient),
-    riskScore: calculateRiskScore(calculateBradenScore(newPatient)),
-  };
-};
-
-// Update patient
-export const updatePatient = (id, updatedData) => {
-  const index = patientsData.findIndex(p => p.id === parseInt(id) || p.id === id);
-  if (index !== -1) {
-    patientsData[index] = { ...patientsData[index], ...updatedData };
-    const patient = patientsData[index];
-    return {
-      ...patient,
-      bradenScore: calculateBradenScore(patient),
-      riskScore: calculateRiskScore(calculateBradenScore(patient)),
-    };
-  }
-  return null;
-};
-
-// Delete patient
-export const deletePatient = (id) => {
-  const index = patientsData.findIndex(p => p.id === parseInt(id) || p.id === id);
-  if (index !== -1) {
-    const deleted = patientsData.splice(index, 1);
-    return deleted[0];
-  }
-  return null;
 };
 
 // Get risk level from risk score
@@ -298,10 +79,10 @@ export const getRiskLevel = (riskScore) => {
 
 // Get risk level from Braden Score directly (3 items, max 12)
 export const getRiskLevelFromBraden = (bradenScore) => {
-  if (bradenScore <= 4) return 'critical';   // Very High Risk
-  if (bradenScore <= 6) return 'high';       // High Risk
-  if (bradenScore <= 8) return 'moderate';   // Moderate Risk
-  return 'low';                               // Low Risk
+  if (bradenScore <= 4) return 'critical';
+  if (bradenScore <= 6) return 'high';
+  if (bradenScore <= 8) return 'moderate';
+  return 'low';
 };
 
 // Risk config for styling
@@ -348,17 +129,12 @@ export const getRiskConfig = (level) => {
       labelKr: '낮음',
     },
   };
-  return configs[level];
+  return configs[level] || configs.low;
 };
 
 // Get activity status text from activity score
 export const getActivityStatus = (activityScore) => {
-  const statuses = {
-    1: 'Bedfast',
-    2: 'Chairfast',
-    3: 'Walks Occasionally',
-    4: 'Walks Frequently',
-  };
+  const statuses = { 1: 'Bedfast', 2: 'Chairfast', 3: 'Walks Occasionally', 4: 'Walks Frequently' };
   return statuses[activityScore] || 'Unknown';
 };
 
@@ -376,4 +152,120 @@ export const calculateBMI = (height_cm, weight_kg) => {
   if (!height_cm || !weight_kg) return null;
   const heightM = height_cm / 100;
   return (weight_kg / (heightM * heightM)).toFixed(1);
+};
+
+// Add computed fields to patient data from backend
+const enrichPatientData = (patient) => {
+  const bradenScore = calculateBradenScore(patient);
+  const riskScore = calculateRiskScore(bradenScore);
+  return {
+    ...patient,
+    bradenScore,
+    riskScore,
+    // Map snake_case from backend to expected fields if needed
+    room_number: patient.room_number || patient.roomNumber,
+    height_cm: patient.height_cm || patient.heightCm,
+    weight_kg: patient.weight_kg || patient.weightKg,
+    blood_pressure: patient.blood_pressure || patient.bloodPressure,
+    sensory_perception: patient.sensory_perception || patient.sensoryPerception,
+    has_ulcer: patient.has_ulcer ?? patient.hasUlcer ?? false,
+    ulcer_stage: patient.ulcer_stage || patient.ulcerStage,
+    ulcer_location: patient.ulcer_location || patient.ulcerLocation,
+    created_at: patient.created_at || patient.createdAt,
+  };
+};
+
+// ==================== API Functions ====================
+
+// Get all patients from backend
+export const getAllPatients = async () => {
+  try {
+    const patients = await patientAPI.getAll();
+    return patients.map(enrichPatientData);
+  } catch (error) {
+    console.error('Failed to fetch patients:', error);
+    throw error;
+  }
+};
+
+// Get patient by ID from backend
+export const getPatientById = async (id) => {
+  try {
+    const patient = await patientAPI.getById(id);
+    return enrichPatientData(patient);
+  } catch (error) {
+    console.error(`Failed to fetch patient ${id}:`, error);
+    throw error;
+  }
+};
+
+// Create new patient
+export const createPatient = async (patientData) => {
+  try {
+    // Map to backend expected format (camelCase for Spring Boot)
+    const payload = {
+      name: patientData.name,
+      age: parseInt(patientData.age),
+      gender: patientData.gender || 'M',
+      heightCm: patientData.height_cm ? parseFloat(patientData.height_cm) : null,
+      weightKg: patientData.weight_kg ? parseFloat(patientData.weight_kg) : null,
+      bloodPressure: patientData.blood_pressure || '',
+      roomNumber: patientData.room_number || '',
+      diagnosis: patientData.diagnosis || '',
+      notes: patientData.notes || '',
+      sensoryPerception: parseInt(patientData.sensory_perception) || 4,
+      moisture: parseInt(patientData.moisture) || 4,
+      activity: parseInt(patientData.activity) || 4,
+      hasUlcer: patientData.has_ulcer || false,
+      ulcerStage: patientData.has_ulcer ? patientData.ulcer_stage : null,
+      ulcerLocation: patientData.has_ulcer ? patientData.ulcer_location : null,
+    };
+
+    const created = await patientAPI.create(payload);
+    return enrichPatientData(created);
+  } catch (error) {
+    console.error('Failed to create patient:', error);
+    throw error;
+  }
+};
+
+// Update patient
+export const updatePatient = async (id, patientData) => {
+  try {
+    // Map to backend expected format
+    const payload = {
+      name: patientData.name,
+      age: parseInt(patientData.age),
+      gender: patientData.gender || 'M',
+      heightCm: patientData.height_cm ? parseFloat(patientData.height_cm) : null,
+      weightKg: patientData.weight_kg ? parseFloat(patientData.weight_kg) : null,
+      bloodPressure: patientData.blood_pressure || '',
+      roomNumber: patientData.room_number || '',
+      diagnosis: patientData.diagnosis || '',
+      notes: patientData.notes || '',
+      sensoryPerception: parseInt(patientData.sensory_perception) || 4,
+      moisture: parseInt(patientData.moisture) || 4,
+      activity: parseInt(patientData.activity) || 4,
+      hasUlcer: patientData.has_ulcer || false,
+      ulcerStage: patientData.has_ulcer ? patientData.ulcer_stage : null,
+      ulcerLocation: patientData.has_ulcer ? patientData.ulcer_location : null,
+    };
+
+    const updated = await patientAPI.update(id, payload);
+    return enrichPatientData(updated);
+  } catch (error) {
+    console.error(`Failed to update patient ${id}:`, error);
+    throw error;
+  }
+};
+
+// Delete patient
+export const deletePatient = async (id) => {
+  try {
+    await patientAPI.delete(id);
+    return true;
+  } catch (error) {
+    console.error(`Failed to delete patient ${id}:`, error);
+    throw error;
+  }
 };

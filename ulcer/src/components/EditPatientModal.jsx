@@ -249,33 +249,6 @@ function EditPatientModal({ patient, isOpen, onClose, onSave }) {
             </div>
           </div>
 
-          {/* Braden Scale */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-clinical-700 uppercase tracking-wider">{t.bradenScale}</h3>
-              <div className={`px-3 py-1.5 rounded-lg font-bold text-sm ${riskInfo.color}`}>
-                {bradenScore}/12 - {riskInfo.label}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {Object.entries(bradenScaleDescriptions).map(([key, desc]) => (
-                <div key={key} className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <label className="block text-xs text-slate-600 font-medium mb-2">
-                    {language === 'ko' ? desc.labelKr : desc.label}
-                  </label>
-                  <select name={key} value={formData[key]} onChange={handleChange}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 text-sm focus:outline-none focus:border-clinical-500">
-                    {desc.options.map(opt => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.value} - {language === 'ko' ? opt.labelKr : opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Ulcer Status */}
           <div>
             <h3 className="text-sm font-semibold text-clinical-700 uppercase tracking-wider mb-3">{t.ulcerStatus}</h3>

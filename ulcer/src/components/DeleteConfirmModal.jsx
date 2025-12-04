@@ -1,6 +1,9 @@
 import React from 'react';
+import { useLanguage } from '../context/LanguageContext';
 
 function DeleteConfirmModal({ isOpen, onClose, onConfirm, patientName }) {
+  const { t, language } = useLanguage();
+  
   if (!isOpen) return null;
 
   return (
@@ -25,11 +28,20 @@ function DeleteConfirmModal({ isOpen, onClose, onConfirm, patientName }) {
         {/* Content */}
         <div className="text-center mb-6">
           <h3 className="font-display text-xl font-semibold text-slate-800 mb-2">
-            Delete Patient
+            {t('confirmDeletion')}
           </h3>
           <p className="text-slate-500">
-            Are you sure you want to delete <span className="font-semibold text-slate-700">{patientName}</span>? 
-            This action cannot be undone.
+            {language === 'ko' ? (
+              <>
+                정말로 <span className="font-semibold text-slate-700">{patientName}</span> 환자를 삭제하시겠습니까?
+                이 작업은 취소할 수 없습니다.
+              </>
+            ) : (
+              <>
+                Are you sure you want to delete <span className="font-semibold text-slate-700">{patientName}</span>? 
+                This action cannot be undone.
+              </>
+            )}
           </p>
         </div>
 
@@ -39,7 +51,7 @@ function DeleteConfirmModal({ isOpen, onClose, onConfirm, patientName }) {
             onClick={onClose}
             className="px-6 py-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800 transition-all font-medium"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -48,7 +60,7 @@ function DeleteConfirmModal({ isOpen, onClose, onConfirm, patientName }) {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
-            Delete
+            {t('delete')}
           </button>
         </div>
       </div>
@@ -57,4 +69,3 @@ function DeleteConfirmModal({ isOpen, onClose, onConfirm, patientName }) {
 }
 
 export default DeleteConfirmModal;
-

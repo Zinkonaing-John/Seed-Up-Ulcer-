@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useLanguage } from '../context/LanguageContext';
 import { 
   getPatientById, 
   getRiskLevel, 
@@ -13,10 +14,12 @@ import ThermographyView from '../components/ThermographyView';
 import CareInstructions from '../components/CareInstructions';
 import EditPatientModal from '../components/EditPatientModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
+import LanguageToggle from '../components/LanguageToggle';
 
 function PatientDetail() {
   const { patientId } = useParams();
   const navigate = useNavigate();
+  const { t, language } = useLanguage();
   const [patient, setPatient] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -30,12 +33,14 @@ function PatientDetail() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-800 mb-4">Patient Not Found</h1>
+          <h1 className="text-2xl font-bold text-slate-800 mb-4">
+            {language === 'ko' ? '환자를 찾을 수 없습니다' : 'Patient Not Found'}
+          </h1>
           <button
             onClick={() => navigate('/')}
             className="px-6 py-3 bg-clinical-600 text-white rounded-xl hover:bg-clinical-500 transition-all shadow-md"
           >
-            Back to Dashboard
+            {t('backToDashboard')}
           </button>
         </div>
       </div>
@@ -60,19 +65,31 @@ function PatientDetail() {
   const config = getRiskConfig(riskLevel);
   const scorePercentage = Math.round(patient.riskScore * 100);
 
+  const riskLabels = {
+    critical: language === 'ko' ? '위험' : 'CRITICAL',
+    high: language === 'ko' ? '높음' : 'HIGH',
+    moderate: language === 'ko' ? '중간' : 'MODERATE',
+    low: language === 'ko' ? '낮음' : 'LOW',
+  };
+
   return (
     <div className="min-h-screen p-6 lg:p-8 bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header with Back Button */}
       <header className="mb-8 animate-fade-in">
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors mb-6 group"
-        >
-          <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          <span>Back to Dashboard</span>
-        </button>
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors group"
+          >
+            <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            <span>{t('backToDashboard')}</span>
+          </button>
+          
+          {/* Language Toggle */}
+          <LanguageToggle />
+        </div>
 
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
@@ -84,7 +101,7 @@ function PatientDetail() {
                 {patient.name}
               </h1>
               <p className="text-slate-500 mt-1">
-                #{patient.id} • Room {patient.room} • {patient.age}세 • {patient.gender === 'M' ? '남성' : '여성'}
+                #{patient.id} • {t('room')} {patient.room} • {patient.age}{t('years')} • {patient.gender === 'M' ? t('male') : t('female')}
               </p>
             </div>
           </div>
@@ -94,11 +111,11 @@ function PatientDetail() {
             <div className={`px-5 py-3 rounded-xl ${config.bg} border ${config.border} ${config.glow}`}>
               <div className="flex items-center gap-4">
                 <div className="text-right">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">Risk Score</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">{t('riskScore')}</p>
                   <p className={`font-mono font-bold text-2xl ${config.textDark}`}>{scorePercentage}%</p>
                 </div>
                 <div className={`px-3 py-1.5 rounded-lg ${config.badge} text-white font-bold text-sm shadow-sm`}>
-                  {config.label}
+                  {riskLabels[riskLevel]}
                 </div>
               </div>
             </div>
@@ -110,7 +127,7 @@ function PatientDetail() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
-              Edit
+              {t('edit')}
             </button>
 
             <button
@@ -120,7 +137,7 @@ function PatientDetail() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
-              Delete
+              {t('delete')}
             </button>
           </div>
         </div>
@@ -136,30 +153,30 @@ function PatientDetail() {
               <svg className="w-5 h-5 text-clinical-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
-              Patient Information / 환자 정보
+              {t('patientInfo')}
             </h2>
             
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 bg-slate-100 rounded-xl">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">Registration Date</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">{t('registrationDate')}</p>
                   <p className="text-slate-800 font-medium mt-1">
                     {new Date(patient.created_at).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="p-3 bg-slate-100 rounded-xl">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">Last Assessment</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">{t('lastAssessment')}</p>
                   <p className="text-slate-800 font-medium mt-1">{patient.lastAssessment}</p>
                 </div>
               </div>
 
               <div className="p-3 bg-slate-100 rounded-xl">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Mobility Status / 기동력</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wider">{t('mobilityStatus')}</p>
                 <p className="text-slate-800 font-medium mt-1">{getMobilityStatus(patient.mobility)}</p>
               </div>
 
               <div className="p-3 bg-slate-100 rounded-xl">
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Skin Condition / 피부 상태</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wider">{t('skinCondition')}</p>
                 <p className={`font-medium mt-1 ${
                   patient.has_ulcer ? 'text-red-600' : 'text-emerald-600'
                 }`}>{getSkinCondition(patient)}</p>
@@ -171,10 +188,10 @@ function PatientDetail() {
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
-                    Ulcer Alert / 욕창 경고
+                    {t('ulcerAlert')}
                   </p>
                   <p className="text-red-700 font-medium mt-1">
-                    Stage {patient.ulcer_stage} - {patient.ulcer_location}
+                    {t('stage')} {patient.ulcer_stage} - {patient.ulcer_location}
                   </p>
                 </div>
               )}

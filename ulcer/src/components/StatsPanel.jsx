@@ -1,9 +1,12 @@
 import React from 'react';
+import { useLanguage } from '../context/LanguageContext';
 
 function StatsPanel({ stats }) {
+  const { t } = useLanguage();
+
   const statCards = [
     {
-      label: 'Total Patients',
+      labelKey: 'totalPatients',
       value: stats.total,
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -11,11 +14,10 @@ function StatsPanel({ stats }) {
         </svg>
       ),
       color: 'clinical',
-      bgGradient: 'from-clinical-50 to-clinical-100',
       borderColor: 'border-clinical-200',
     },
     {
-      label: 'Critical Risk',
+      labelKey: 'criticalRisk',
       value: stats.critical,
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -23,12 +25,11 @@ function StatsPanel({ stats }) {
         </svg>
       ),
       color: 'red',
-      bgGradient: 'from-red-50 to-red-100',
       borderColor: 'border-red-200',
       pulse: stats.critical > 0,
     },
     {
-      label: 'High Risk',
+      labelKey: 'highRisk',
       value: stats.high,
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -36,11 +37,10 @@ function StatsPanel({ stats }) {
         </svg>
       ),
       color: 'orange',
-      bgGradient: 'from-orange-50 to-orange-100',
       borderColor: 'border-orange-200',
     },
     {
-      label: 'Moderate Risk',
+      labelKey: 'moderateRisk',
       value: stats.moderate,
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -48,11 +48,10 @@ function StatsPanel({ stats }) {
         </svg>
       ),
       color: 'amber',
-      bgGradient: 'from-amber-50 to-amber-100',
       borderColor: 'border-amber-200',
     },
     {
-      label: 'Low Risk',
+      labelKey: 'lowRisk',
       value: stats.low,
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -60,7 +59,6 @@ function StatsPanel({ stats }) {
         </svg>
       ),
       color: 'emerald',
-      bgGradient: 'from-emerald-50 to-emerald-100',
       borderColor: 'border-emerald-200',
     },
   ];
@@ -91,7 +89,7 @@ function StatsPanel({ stats }) {
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 animate-slide-up delay-100">
       {statCards.map((stat, index) => (
         <div
-          key={stat.label}
+          key={stat.labelKey}
           className={`
             relative bg-white rounded-xl p-5 border ${stat.borderColor}
             shadow-sm hover:shadow-md
@@ -117,7 +115,7 @@ function StatsPanel({ stats }) {
           </div>
           
           <div className="text-sm text-slate-500">
-            {stat.label}
+            {t(stat.labelKey)}
           </div>
         </div>
       ))}

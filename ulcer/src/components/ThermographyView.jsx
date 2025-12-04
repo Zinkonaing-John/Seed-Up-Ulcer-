@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useLanguage } from '../context/LanguageContext';
 
 function ThermographyView({ patient, children }) {
+  const { t } = useLanguage();
   const [isLive, setIsLive] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [cameraUrl, setCameraUrl] = useState('http://192.168.10.105:8080/');
@@ -61,9 +63,9 @@ function ThermographyView({ patient, children }) {
           </div>
           <div>
             <h3 className="font-display text-xl font-semibold text-slate-800">
-              Thermography Camera / 열화상 카메라
+              {t('thermographyCamera')}
             </h3>
-            <p className="text-sm text-slate-500">Live feed from {cameraUrl}</p>
+            <p className="text-sm text-slate-500">{t('liveFeed')} {cameraUrl}</p>
           </div>
         </div>
         
@@ -77,12 +79,12 @@ function ThermographyView({ patient, children }) {
             }`}
           >
             <span className={`w-2 h-2 rounded-full ${isLive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
-            {isLive ? 'LIVE' : 'PAUSED'}
+            {isLive ? t('live') : t('paused')}
           </button>
           <button
             onClick={() => setIsSettingsOpen(true)}
             className="p-2 rounded-lg bg-slate-100 border border-slate-300 text-slate-500 hover:bg-slate-200 transition-colors"
-            title="Camera Settings"
+            title={t('cameraSettings')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -110,7 +112,7 @@ function ThermographyView({ patient, children }) {
               {/* Live indicator overlay */}
               <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 px-3 py-1.5 rounded-lg">
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                <span className="text-xs text-white font-mono">LIVE</span>
+                <span className="text-xs text-white font-mono">{t('live')}</span>
               </div>
 
               {/* Timestamp overlay */}
@@ -127,9 +129,8 @@ function ThermographyView({ patient, children }) {
               <svg className="w-16 h-16 text-red-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <h4 className="text-white font-semibold mb-2">Camera Connection Failed</h4>
+              <h4 className="text-white font-semibold mb-2">{t('cameraConnectionFailed')}</h4>
               <p className="text-slate-400 text-sm mb-4">
-                Could not connect to camera at:<br/>
                 <code className="text-amber-400">{cameraUrl}</code>
               </p>
               <div className="flex gap-3">
@@ -137,13 +138,13 @@ function ThermographyView({ patient, children }) {
                   onClick={handleRetry}
                   className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm"
                 >
-                  Retry Connection
+                  {t('retryConnection')}
                 </button>
                 <button
                   onClick={() => setIsSettingsOpen(true)}
                   className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors text-sm"
                 >
-                  Change URL
+                  {t('changeUrl')}
                 </button>
               </div>
             </div>
@@ -153,12 +154,12 @@ function ThermographyView({ patient, children }) {
               <svg className="w-16 h-16 text-slate-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-slate-400">Camera Paused</p>
+              <p className="text-slate-400">{t('cameraPaused')}</p>
               <button
                 onClick={() => setIsLive(true)}
                 className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm"
               >
-                Resume Live Feed
+                {t('resumeLiveFeed')}
               </button>
             </div>
           )}
@@ -175,7 +176,7 @@ function ThermographyView({ patient, children }) {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md animate-slide-up">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-slate-800">Camera Settings</h3>
+              <h3 className="text-xl font-bold text-slate-800">{t('cameraSettings')}</h3>
               <button 
                 onClick={() => setIsSettingsOpen(false)}
                 className="p-1 rounded-lg hover:bg-slate-100 text-slate-500"
@@ -188,7 +189,7 @@ function ThermographyView({ patient, children }) {
             
             <div className="mb-4">
               <label className="block text-sm font-medium text-slate-700 mb-2">
-                Camera Stream URL
+                {t('cameraStreamUrl')}
               </label>
               <input
                 type="text"
@@ -200,7 +201,7 @@ function ThermographyView({ patient, children }) {
             </div>
             
             <div className="mb-6">
-              <p className="text-sm font-medium text-slate-700 mb-2">Common Endpoints</p>
+              <p className="text-sm font-medium text-slate-700 mb-2">{t('commonEndpoints')}</p>
               <div className="grid grid-cols-2 gap-2">
                 {commonEndpoints.map(endpoint => (
                   <button
@@ -219,7 +220,7 @@ function ThermographyView({ patient, children }) {
                 onClick={() => setIsSettingsOpen(false)}
                 className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors"
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 onClick={() => {
@@ -229,7 +230,7 @@ function ThermographyView({ patient, children }) {
                 }}
                 className="px-4 py-2 bg-clinical-600 text-white rounded-xl hover:bg-clinical-700 transition-colors"
               >
-                Apply & Connect
+                {t('applyConnect')}
               </button>
             </div>
           </div>

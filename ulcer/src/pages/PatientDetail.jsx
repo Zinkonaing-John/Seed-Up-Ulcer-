@@ -14,6 +14,7 @@ import ThermographyView from '../components/ThermographyView';
 import CareInstructions from '../components/CareInstructions';
 import EditPatientModal from '../components/EditPatientModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
+import PatientHistoryModal from '../components/PatientHistoryModal';
 import LanguageToggle from '../components/LanguageToggle';
 
 function PatientDetail() {
@@ -23,6 +24,7 @@ function PatientDetail() {
   const [patient, setPatient] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -33,6 +35,7 @@ function PatientDetail() {
       backToDashboard: '대시보드로 돌아가기',
       edit: '수정',
       delete: '삭제',
+      history: '평가 이력',
       riskScore: '위험 점수',
       patientInfo: '환자 상세 정보',
       registrationDate: '등록일',
@@ -63,6 +66,7 @@ function PatientDetail() {
       backToDashboard: 'Back to Dashboard',
       edit: 'Edit',
       delete: 'Delete',
+      history: 'Assessment History',
       riskScore: 'Risk Score',
       patientInfo: 'Patient Details',
       registrationDate: 'Registration Date',
@@ -228,19 +232,15 @@ function PatientDetail() {
             </div>
           </div>
 
-          {/* Risk Badge + Buttons */}
+          {/* Action Buttons */}
           <div className="flex items-center gap-3">
-            <div className={`px-5 py-3 rounded-xl ${config.bg} border ${config.border} ${config.glow}`}>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">{t.riskScore}</p>
-                  <p className={`font-mono font-bold text-2xl ${config.textDark}`}>{scorePercentage}%</p>
-                </div>
-                <div className={`px-3 py-1.5 rounded-lg ${config.badge} text-white font-bold text-sm shadow-sm`}>
-                  {riskLabels[riskLevel]}
-                </div>
-              </div>
-            </div>
+            <button onClick={() => setIsHistoryModalOpen(true)}
+              className="flex items-center gap-2 px-5 py-4 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg shadow-blue-200 hover:scale-105">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              {t.history}
+            </button>
 
             <button onClick={() => setIsEditModalOpen(true)} disabled={isSaving}
               className="flex items-center gap-2 px-5 py-4 rounded-xl bg-gradient-to-r from-clinical-600 to-clinical-700 text-white font-medium hover:from-clinical-500 hover:to-clinical-600 transition-all shadow-lg shadow-clinical-200 hover:scale-105 disabled:opacity-50">
@@ -385,6 +385,8 @@ function PatientDetail() {
         onClose={() => setIsEditModalOpen(false)} onSave={handleSavePatient} />
       <DeleteConfirmModal isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)} onConfirm={handleDeletePatient} patientName={patient.name} />
+      <PatientHistoryModal patient={patient} isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)} />
     </div>
   );
 }

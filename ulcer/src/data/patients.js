@@ -356,12 +356,11 @@ export const getAllPatients = async () => {
     
     if (config.USE_OFFLINE_FALLBACK) {
       console.warn('⚠️ Switching to offline mode with demo data');
-      console.warn('💡 To use real data, start Spring Boot backend at http://localhost:8080');
+      console.warn('💡 To use real data, start Spring Boot backend at ' + config.API_BASE_URL);
       USE_OFFLINE_MODE = true;
       return offlineGetAll();
     } else {
-      // Force backend connection - throw error
-      throw new Error(`Failed to connect to backend at ${config.API_BASE_URL}. Please ensure Spring Boot server is running.`);
+      throw new Error(`Failed to connect to backend at ${config.API_BASE_URL}. Please ensure Spring Boot server is running on port 8030.`);
     }
   }
 };
@@ -379,7 +378,7 @@ export const getPatientById = async (id) => {
       USE_OFFLINE_MODE = true;
       return offlineGetById(id);
     } else {
-      throw new Error(`Failed to fetch patient ${id} from backend. Please ensure Spring Boot server is running.`);
+      throw new Error(`Failed to fetch patient ${id}. Please ensure Spring Boot server is running on port 8030.`);
     }
   }
 };
@@ -407,14 +406,14 @@ export const createPatient = async (patientData) => {
     const created = await patientAPI.create(payload);
     return enrichPatientData(created);
   } catch (error) {
-    console.error('Failed to create patient on backend:', error.message);
+    console.error('Failed to create patient:', error.message);
     
     if (config.USE_OFFLINE_FALLBACK) {
       console.warn('Using offline mode for creating patient');
       USE_OFFLINE_MODE = true;
       return offlineCreate(patientData);
     } else {
-      throw new Error('Failed to create patient. Please ensure Spring Boot server is running.');
+      throw new Error('Failed to create patient. Please ensure Spring Boot server is running on port 8030.');
     }
   }
 };
@@ -442,14 +441,14 @@ export const updatePatient = async (id, patientData) => {
     const updated = await patientAPI.update(id, payload);
     return enrichPatientData(updated);
   } catch (error) {
-    console.error('Failed to update patient on backend:', error.message);
+    console.error('Failed to update patient:', error.message);
     
     if (config.USE_OFFLINE_FALLBACK) {
       console.warn('Using offline mode for updating patient');
       USE_OFFLINE_MODE = true;
       return offlineUpdate(id, patientData);
     } else {
-      throw new Error('Failed to update patient. Please ensure Spring Boot server is running.');
+      throw new Error('Failed to update patient. Please ensure Spring Boot server is running on port 8030.');
     }
   }
 };
@@ -460,14 +459,14 @@ export const deletePatient = async (id) => {
     await patientAPI.delete(id);
     return true;
   } catch (error) {
-    console.error('Failed to delete patient on backend:', error.message);
+    console.error('Failed to delete patient:', error.message);
     
     if (config.USE_OFFLINE_FALLBACK) {
       console.warn('Using offline mode for deleting patient');
       USE_OFFLINE_MODE = true;
       return offlineDelete(id);
     } else {
-      throw new Error('Failed to delete patient. Please ensure Spring Boot server is running.');
+      throw new Error('Failed to delete patient. Please ensure Spring Boot server is running on port 8030.');
     }
   }
 };

@@ -8,7 +8,7 @@ export const config = {
   API_TIMEOUT: 5000, // 5 seconds
   
   // Feature flags
-  USE_OFFLINE_FALLBACK: false, // Set to true to use demo data when backend is unavailable
+  USE_OFFLINE_FALLBACK: false, // IMPORTANT: Set to false to force backend API usage
   
   // LLM API settings
   LLM_MAX_TOKENS: 200,

@@ -6,7 +6,6 @@ import {
   getRiskConfig, 
   updatePatient, 
   deletePatient,
-  bradenScaleDescriptions,
   getMobilityStatus,
   getSkinCondition
 } from '../data/patients';
@@ -60,14 +59,6 @@ function PatientDetail() {
   const riskLevel = getRiskLevel(patient.riskScore);
   const config = getRiskConfig(riskLevel);
   const scorePercentage = Math.round(patient.riskScore * 100);
-
-  // Get Braden Scale item descriptions
-  const getBradenItemLabel = (key, value) => {
-    const desc = bradenScaleDescriptions[key];
-    if (!desc) return value;
-    const option = desc.options.find(o => o.value === value);
-    return option ? option.label : value;
-  };
 
   return (
     <div className="min-h-screen p-6 lg:p-8 bg-gradient-to-br from-gray-50 to-gray-100">
@@ -187,57 +178,6 @@ function PatientDetail() {
                   </p>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Braden Scale Assessment */}
-          <div className="glass rounded-2xl p-6">
-            <h2 className="font-display text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
-              <svg className="w-5 h-5 text-clinical-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              Braden Scale / 브레이든 척도
-            </h2>
-
-            <div className="mb-4 p-4 bg-gradient-to-r from-clinical-50 to-clinical-100 rounded-xl border border-clinical-200">
-              <div className="flex items-center justify-between">
-                <span className="text-clinical-700 font-medium">Total Score</span>
-                <span className={`font-mono font-bold text-2xl ${config.textDark}`}>
-                  {patient.bradenScore}/23
-                </span>
-              </div>
-              <div className="mt-2 h-2 bg-clinical-200 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full ${config.badge} transition-all duration-500`}
-                  style={{ width: `${(patient.bradenScore / 23) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {Object.entries(bradenScaleDescriptions).map(([key, desc]) => {
-                const value = patient[key];
-                const maxScore = key === 'friction_shear' ? 3 : 4;
-                const isLow = value <= Math.ceil(maxScore / 2);
-                return (
-                  <div key={key} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                    <div>
-                      <p className="text-sm font-medium text-slate-700">{desc.label}</p>
-                      <p className="text-xs text-slate-500">{desc.labelKr}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className={`inline-block px-2.5 py-1 rounded-lg text-sm font-bold ${
-                        isLow ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'
-                      }`}>
-                        {value}/{maxScore}
-                      </span>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {getBradenItemLabel(key, value)}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           </div>
         </div>

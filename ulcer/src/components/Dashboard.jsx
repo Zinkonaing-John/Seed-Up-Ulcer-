@@ -8,6 +8,8 @@ import AddPatientModal from './AddPatientModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import LanguageToggle from './LanguageToggle';
 import { getAllPatients, getRiskLevel, createPatient, deletePatient, isOfflineMode } from '../data/patients';
+import { testBackendConnection } from '../services/api';
+import config from '../config';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -20,6 +22,8 @@ function Dashboard() {
   const [patientToDelete, setPatientToDelete] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [backendStatus, setBackendStatus] = useState(null);
+  const [showBackendInfo, setShowBackendInfo] = useState(false);
 
   const labels = {
     ko: {
@@ -60,6 +64,13 @@ function Dashboard() {
 
   const t = labels[language] || labels.en;
 
+  // Test backend connection
+  const checkBackendConnection = useCallback(async () => {
+    const status = await testBackendConnection();
+    setBackendStatus(status);
+    return status;
+  }, []);
+
   // Fetch patients from backend
   const fetchPatients = useCallback(async () => {
     setIsLoading(true);
@@ -70,13 +81,16 @@ function Dashboard() {
       if (data.length > 0 && !selectedPatient) {
         setSelectedPatient(data[0]);
       }
+      // Check backend status after fetch
+      await checkBackendConnection();
     } catch (err) {
       console.error('Failed to fetch patients:', err);
       setError(err.message || t.error);
+      await checkBackendConnection();
     } finally {
       setIsLoading(false);
     }
-  }, [selectedPatient, t.error]);
+  }, [selectedPatient, t.error, checkBackendConnection]);
 
   useEffect(() => {
     fetchPatients();
@@ -170,23 +184,99 @@ function Dashboard() {
             </button>
           </div>
         </div>
-        <div className="flex items-center gap-2 mt-4">
+        <div className="flex items-center gap-2 mt-4 flex-wrap">
           {isOfflineMode() ? (
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 border border-amber-300">
+            <button
+              onClick={() => setShowBackendInfo(!showBackendInfo)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 border border-amber-300 hover:bg-amber-200 transition-colors cursor-pointer"
+            >
               <span className="w-2 h-2 rounded-full bg-amber-500"></span>
               <span className="text-sm text-amber-700 font-medium">
                 {language === 'ko' ? '📴 오프라인 모드 (데모 데이터)' : '📴 Offline Mode (Demo Data)'}
               </span>
-            </span>
+              <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
           ) : (
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-clinical-100 border border-clinical-200">
-              <span className="w-2 h-2 rounded-full bg-clinical-500 animate-pulse"></span>
-              <span className="text-sm text-clinical-700 font-medium">{t.liveMonitoring}</span>
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-100 border border-emerald-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-sm text-emerald-700 font-medium">
+                {language === 'ko' ? '🌐 백엔드 연결됨' : '🌐 Backend Connected'}
+              </span>
             </span>
           )}
           <span className="text-slate-500 text-sm">
             {t.lastUpdated}: {new Date().toLocaleTimeString()}
           </span>
+          
+          {/* Backend Info Panel */}
+          {showBackendInfo && (
+            <div className="w-full mt-2 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <h3 className="font-semibold text-amber-900">
+                    {language === 'ko' ? '백엔드 연결 정보' : 'Backend Connection Info'}
+                  </h3>
+                </div>
+                <button onClick={() => setShowBackendInfo(false)} className="text-amber-600 hover:text-amber-800">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-2 text-sm text-amber-900">
+                <p>
+                  <strong>{language === 'ko' ? 'API URL:' : 'API URL:'}</strong>{' '}
+                  <code className="px-2 py-1 bg-amber-100 rounded">{config.API_BASE_URL}</code>
+                </p>
+                <p>
+                  <strong>{language === 'ko' ? '상태:' : 'Status:'}</strong>{' '}
+                  {backendStatus?.online ? (
+                    <span className="text-emerald-600">✅ {language === 'ko' ? '온라인' : 'Online'}</span>
+                  ) : (
+                    <span className="text-red-600">❌ {language === 'ko' ? '오프라인' : 'Offline'}</span>
+                  )}
+                </p>
+                {backendStatus?.error && (
+                  <p>
+                    <strong>{language === 'ko' ? '에러:' : 'Error:'}</strong>{' '}
+                    <code className="text-red-600">{backendStatus.error}</code>
+                  </p>
+                )}
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="font-medium text-blue-900 mb-1">
+                    {language === 'ko' ? '💡 백엔드를 실행하려면:' : '💡 To start the backend:'}
+                  </p>
+                  <code className="block text-xs bg-slate-800 text-emerald-400 p-2 rounded">
+                    cd your-spring-boot-project<br/>
+                    ./mvnw spring-boot:run
+                  </code>
+                  <p className="text-xs text-blue-700 mt-2">
+                    {language === 'ko' 
+                      ? '백엔드가 시작되면 페이지를 새로고침하세요.' 
+                      : 'Refresh the page after starting the backend.'}
+                  </p>
+                </div>
+                <button
+                  onClick={async () => {
+                    await checkBackendConnection();
+                    await fetchPatients();
+                  }}
+                  className="w-full mt-2 px-4 py-2 bg-clinical-600 text-white rounded-lg hover:bg-clinical-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {language === 'ko' ? '백엔드 재연결 시도' : 'Retry Backend Connection'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 

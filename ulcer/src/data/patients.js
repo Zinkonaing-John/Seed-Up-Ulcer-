@@ -1,9 +1,11 @@
 // Patient data layer - connects to Spring Boot backend with offline fallback
 import { patientAPI } from '../services/api';
+import config from '../config';
 
 // ==================== Configuration ====================
-// Set to true to use mock data (offline mode), false to use backend API
+// Track offline mode status
 let USE_OFFLINE_MODE = false;
+let backendConnectionAttempted = false;
 
 // ==================== Braden Scale Descriptions ====================
 export const bradenScaleDescriptions = {
@@ -342,19 +344,33 @@ const offlineDelete = (id) => {
 
 // Get all patients
 export const getAllPatients = async () => {
-  // Try API first, fallback to offline mode
+  // Try API first, fallback to offline mode only if enabled
   if (!USE_OFFLINE_MODE) {
     try {
+      console.log('🌐 Fetching patients from backend API...');
       const patients = await patientAPI.getAll();
+      backendConnectionAttempted = true;
+      console.log('✅ Successfully fetched patients from backend:', patients.length);
       return patients.map(enrichPatientData);
     } catch (error) {
-      console.warn('Backend unavailable, switching to offline mode:', error.message);
-      USE_OFFLINE_MODE = true;
+      backendConnectionAttempted = true;
+      console.error('❌ Backend connection failed:', error.message);
+      
+      if (config.USE_OFFLINE_FALLBACK) {
+        console.warn('⚠️ Switching to offline mode with demo data');
+        console.warn('💡 To use real data, start Spring Boot backend at http://localhost:8080');
+        USE_OFFLINE_MODE = true;
+      } else {
+        throw error; // Don't use fallback, throw error instead
+      }
     }
   }
   
   // Offline mode
-  console.log('📴 Using offline mode with mock data');
+  if (!backendConnectionAttempted) {
+    console.log('📴 Backend not attempted yet, using offline mode');
+  }
+  console.log('📴 Using offline mode with mock data (6 demo patients)');
   return offlineGetAll();
 };
 

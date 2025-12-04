@@ -1,6 +1,14 @@
 // API Service for connecting to Spring Boot backend
+import config from '../config';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = config.API_BASE_URL;
+
+// Track backend connection status
+let backendStatus = {
+  isOnline: true,
+  lastChecked: null,
+  error: null,
+};
 
 // Generic fetch wrapper with error handling
 const fetchAPI = async (endpoint, options = {}) => {
@@ -16,21 +24,44 @@ const fetchAPI = async (endpoint, options = {}) => {
       ...defaultHeaders,
       ...options.headers,
     },
+    signal: AbortSignal.timeout(5000), // 5 second timeout
   };
 
   try {
+    console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
+    
     const response = await fetch(url, config);
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `API Error: ${response.status}`);
+      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
     }
 
     // Handle empty response (e.g., DELETE)
     const text = await response.text();
-    return text ? JSON.parse(text) : null;
+    const data = text ? JSON.parse(text) : null;
+    
+    // Update backend status to online
+    backendStatus.isOnline = true;
+    backendStatus.lastChecked = new Date();
+    backendStatus.error = null;
+    
+    console.log(`✅ API Response: ${endpoint}`, data);
+    return data;
+    
   } catch (error) {
-    console.error(`API Error [${endpoint}]:`, error);
+    // Update backend status to offline
+    backendStatus.isOnline = false;
+    backendStatus.lastChecked = new Date();
+    backendStatus.error = error.message;
+    
+    console.error(`❌ API Error [${endpoint}]:`, error.message);
+    
+    // Provide helpful error messages
+    if (error.name === 'AbortError' || error.message.includes('fetch')) {
+      throw new Error('Backend server is not responding. Please check if Spring Boot is running on http://localhost:8080');
+    }
+    
     throw error;
   }
 };
@@ -40,35 +71,70 @@ const fetchAPI = async (endpoint, options = {}) => {
 export const patientAPI = {
   // GET /api/patients - Get all patients
   getAll: async () => {
-    return fetchAPI('/patients');
+    try {
+      return await fetchAPI('/patients');
+    } catch (error) {
+      console.error('Failed to fetch patients from backend:', error.message);
+      throw error;
+    }
   },
 
   // GET /api/patients/{id} - Get single patient by ID
   getById: async (id) => {
-    return fetchAPI(`/patients/${id}`);
+    try {
+      return await fetchAPI(`/patients/${id}`);
+    } catch (error) {
+      console.error(`Failed to fetch patient ${id} from backend:`, error.message);
+      throw error;
+    }
   },
 
   // POST /api/patients - Create new patient
   create: async (patientData) => {
-    return fetchAPI('/patients', {
-      method: 'POST',
-      body: JSON.stringify(patientData),
-    });
+    try {
+      return await fetchAPI('/patients', {
+        method: 'POST',
+        body: JSON.stringify(patientData),
+      });
+    } catch (error) {
+      console.error('Failed to create patient on backend:', error.message);
+      throw error;
+    }
   },
 
   // PUT /api/patients/{id} - Update patient
   update: async (id, patientData) => {
-    return fetchAPI(`/patients/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(patientData),
-    });
+    try {
+      return await fetchAPI(`/patients/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(patientData),
+      });
+    } catch (error) {
+      console.error(`Failed to update patient ${id} on backend:`, error.message);
+      throw error;
+    }
   },
 
   // DELETE /api/patients/{id} - Delete patient
   delete: async (id) => {
-    return fetchAPI(`/patients/${id}`, {
-      method: 'DELETE',
-    });
+    try {
+      return await fetchAPI(`/patients/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error(`Failed to delete patient ${id} on backend:`, error.message);
+      throw error;
+    }
+  },
+
+  // Health check
+  healthCheck: async () => {
+    try {
+      await fetchAPI('/patients');
+      return { online: true, error: null };
+    } catch (error) {
+      return { online: false, error: error.message };
+    }
   },
 };
 
@@ -77,20 +143,41 @@ export const patientAPI = {
 export const llmAPI = {
   // POST /api/care-recommendations - Get AI care recommendations
   getCareRecommendations: async (prompt, patientData, maxTokens = 200, language = 'ko') => {
-    return fetchAPI('/care-recommendations', {
-      method: 'POST',
-      body: JSON.stringify({
-        prompt,
-        patient_data: patientData,
-        max_tokens: maxTokens,
-        language,
-      }),
-    });
+    try {
+      return await fetchAPI('/care-recommendations', {
+        method: 'POST',
+        body: JSON.stringify({
+          prompt,
+          patient_data: patientData,
+          max_tokens: maxTokens,
+          language,
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to get care recommendations from backend:', error.message);
+      throw error;
+    }
   },
+};
+
+// Get backend status
+export const getBackendStatus = () => backendStatus;
+
+// Test backend connection
+export const testBackendConnection = async () => {
+  console.log('🔍 Testing backend connection...');
+  const status = await patientAPI.healthCheck();
+  if (status.online) {
+    console.log('✅ Backend is online');
+  } else {
+    console.log('❌ Backend is offline:', status.error);
+  }
+  return status;
 };
 
 export default {
   patient: patientAPI,
   llm: llmAPI,
+  getBackendStatus,
+  testBackendConnection,
 };
-

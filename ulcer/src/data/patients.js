@@ -360,7 +360,7 @@ export const getAllPatients = async () => {
       USE_OFFLINE_MODE = true;
       return offlineGetAll();
     } else {
-      throw new Error(`Failed to connect to backend at ${config.API_BASE_URL}. Please ensure Spring Boot server is running on port 8030.`);
+      throw new Error(`Failed to connect to backend at ${config.API_BASE_URL}. Please ensure the server is accessible.`);
     }
   }
 };
@@ -378,7 +378,7 @@ export const getPatientById = async (id) => {
       USE_OFFLINE_MODE = true;
       return offlineGetById(id);
     } else {
-      throw new Error(`Failed to fetch patient ${id}. Please ensure Spring Boot server is running on port 8030.`);
+      throw new Error(`Failed to fetch patient ${id}. Please ensure the backend server is accessible.`);
     }
   }
 };
@@ -413,7 +413,7 @@ export const createPatient = async (patientData) => {
       USE_OFFLINE_MODE = true;
       return offlineCreate(patientData);
     } else {
-      throw new Error('Failed to create patient. Please ensure Spring Boot server is running on port 8030.');
+      throw new Error('Failed to create patient. Please ensure the backend server is accessible.');
     }
   }
 };
@@ -448,7 +448,7 @@ export const updatePatient = async (id, patientData) => {
       USE_OFFLINE_MODE = true;
       return offlineUpdate(id, patientData);
     } else {
-      throw new Error('Failed to update patient. Please ensure Spring Boot server is running on port 8030.');
+      throw new Error('Failed to update patient. Please ensure the backend server is accessible.');
     }
   }
 };
@@ -466,7 +466,7 @@ export const deletePatient = async (id) => {
       USE_OFFLINE_MODE = true;
       return offlineDelete(id);
     } else {
-      throw new Error('Failed to delete patient. Please ensure Spring Boot server is running on port 8030.');
+      throw new Error('Failed to delete patient. Please ensure the backend server is accessible.');
     }
   }
 };

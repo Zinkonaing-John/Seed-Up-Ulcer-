@@ -2,7 +2,7 @@
 
 export const config = {
   // Backend API URL
-  API_BASE_URL: process.env.REACT_APP_API_URL || 'http://localhost:8030/api',
+  API_BASE_URL: process.env.REACT_APP_API_URL || 'http://jvision.s2x.kr:8030/api',
   
   // Backend connection settings
   API_TIMEOUT: 5000, // 5 seconds

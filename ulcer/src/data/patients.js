@@ -344,128 +344,132 @@ const offlineDelete = (id) => {
 
 // Get all patients
 export const getAllPatients = async () => {
-  // Try API first, fallback to offline mode only if enabled
-  if (!USE_OFFLINE_MODE) {
-    try {
-      console.log('🌐 Fetching patients from backend API...');
-      const patients = await patientAPI.getAll();
-      backendConnectionAttempted = true;
-      console.log('✅ Successfully fetched patients from backend:', patients.length);
-      return patients.map(enrichPatientData);
-    } catch (error) {
-      backendConnectionAttempted = true;
-      console.error('❌ Backend connection failed:', error.message);
-      
-      if (config.USE_OFFLINE_FALLBACK) {
-        console.warn('⚠️ Switching to offline mode with demo data');
-        console.warn('💡 To use real data, start Spring Boot backend at http://localhost:8080');
-        USE_OFFLINE_MODE = true;
-      } else {
-        throw error; // Don't use fallback, throw error instead
-      }
+  try {
+    console.log('🌐 Fetching patients from backend API...');
+    const patients = await patientAPI.getAll();
+    backendConnectionAttempted = true;
+    console.log('✅ Successfully fetched patients from backend:', patients.length);
+    return patients.map(enrichPatientData);
+  } catch (error) {
+    backendConnectionAttempted = true;
+    console.error('❌ Backend connection failed:', error.message);
+    
+    if (config.USE_OFFLINE_FALLBACK) {
+      console.warn('⚠️ Switching to offline mode with demo data');
+      console.warn('💡 To use real data, start Spring Boot backend at http://localhost:8080');
+      USE_OFFLINE_MODE = true;
+      return offlineGetAll();
+    } else {
+      // Force backend connection - throw error
+      throw new Error(`Failed to connect to backend at ${config.API_BASE_URL}. Please ensure Spring Boot server is running.`);
     }
   }
-  
-  // Offline mode
-  if (!backendConnectionAttempted) {
-    console.log('📴 Backend not attempted yet, using offline mode');
-  }
-  console.log('📴 Using offline mode with mock data (6 demo patients)');
-  return offlineGetAll();
 };
 
 // Get patient by ID
 export const getPatientById = async (id) => {
-  if (!USE_OFFLINE_MODE) {
-    try {
-      const patient = await patientAPI.getById(id);
-      return enrichPatientData(patient);
-    } catch (error) {
-      console.warn('Backend unavailable, switching to offline mode:', error.message);
+  try {
+    const patient = await patientAPI.getById(id);
+    return enrichPatientData(patient);
+  } catch (error) {
+    console.error('Failed to fetch patient from backend:', error.message);
+    
+    if (config.USE_OFFLINE_FALLBACK) {
+      console.warn('Using offline mode for patient', id);
       USE_OFFLINE_MODE = true;
+      return offlineGetById(id);
+    } else {
+      throw new Error(`Failed to fetch patient ${id} from backend. Please ensure Spring Boot server is running.`);
     }
   }
-  
-  return offlineGetById(id);
 };
 
 // Create new patient
 export const createPatient = async (patientData) => {
-  if (!USE_OFFLINE_MODE) {
-    try {
-      const payload = {
-        name: patientData.name,
-        age: parseInt(patientData.age),
-        gender: patientData.gender || 'M',
-        heightCm: patientData.height_cm ? parseFloat(patientData.height_cm) : null,
-        weightKg: patientData.weight_kg ? parseFloat(patientData.weight_kg) : null,
-        bloodPressure: patientData.blood_pressure || '',
-        roomNumber: patientData.room_number || '',
-        diagnosis: patientData.diagnosis || '',
-        notes: patientData.notes || '',
-        sensoryPerception: parseInt(patientData.sensory_perception) || 4,
-        moisture: parseInt(patientData.moisture) || 4,
-        activity: parseInt(patientData.activity) || 4,
-        hasUlcer: patientData.has_ulcer || false,
-        ulcerStage: patientData.has_ulcer ? patientData.ulcer_stage : null,
-        ulcerLocation: patientData.has_ulcer ? patientData.ulcer_location : null,
-      };
-      const created = await patientAPI.create(payload);
-      return enrichPatientData(created);
-    } catch (error) {
-      console.warn('Backend unavailable, using offline mode:', error.message);
+  try {
+    const payload = {
+      name: patientData.name,
+      age: parseInt(patientData.age),
+      gender: patientData.gender || 'M',
+      heightCm: patientData.height_cm ? parseFloat(patientData.height_cm) : null,
+      weightKg: patientData.weight_kg ? parseFloat(patientData.weight_kg) : null,
+      bloodPressure: patientData.blood_pressure || '',
+      roomNumber: patientData.room_number || '',
+      diagnosis: patientData.diagnosis || '',
+      notes: patientData.notes || '',
+      sensoryPerception: parseInt(patientData.sensory_perception) || 4,
+      moisture: parseInt(patientData.moisture) || 4,
+      activity: parseInt(patientData.activity) || 4,
+      hasUlcer: patientData.has_ulcer || false,
+      ulcerStage: patientData.has_ulcer ? patientData.ulcer_stage : null,
+      ulcerLocation: patientData.has_ulcer ? patientData.ulcer_location : null,
+    };
+    const created = await patientAPI.create(payload);
+    return enrichPatientData(created);
+  } catch (error) {
+    console.error('Failed to create patient on backend:', error.message);
+    
+    if (config.USE_OFFLINE_FALLBACK) {
+      console.warn('Using offline mode for creating patient');
       USE_OFFLINE_MODE = true;
+      return offlineCreate(patientData);
+    } else {
+      throw new Error('Failed to create patient. Please ensure Spring Boot server is running.');
     }
   }
-  
-  return offlineCreate(patientData);
 };
 
 // Update patient
 export const updatePatient = async (id, patientData) => {
-  if (!USE_OFFLINE_MODE) {
-    try {
-      const payload = {
-        name: patientData.name,
-        age: parseInt(patientData.age),
-        gender: patientData.gender || 'M',
-        heightCm: patientData.height_cm ? parseFloat(patientData.height_cm) : null,
-        weightKg: patientData.weight_kg ? parseFloat(patientData.weight_kg) : null,
-        bloodPressure: patientData.blood_pressure || '',
-        roomNumber: patientData.room_number || '',
-        diagnosis: patientData.diagnosis || '',
-        notes: patientData.notes || '',
-        sensoryPerception: parseInt(patientData.sensory_perception) || 4,
-        moisture: parseInt(patientData.moisture) || 4,
-        activity: parseInt(patientData.activity) || 4,
-        hasUlcer: patientData.has_ulcer || false,
-        ulcerStage: patientData.has_ulcer ? patientData.ulcer_stage : null,
-        ulcerLocation: patientData.has_ulcer ? patientData.ulcer_location : null,
-      };
-      const updated = await patientAPI.update(id, payload);
-      return enrichPatientData(updated);
-    } catch (error) {
-      console.warn('Backend unavailable, using offline mode:', error.message);
+  try {
+    const payload = {
+      name: patientData.name,
+      age: parseInt(patientData.age),
+      gender: patientData.gender || 'M',
+      heightCm: patientData.height_cm ? parseFloat(patientData.height_cm) : null,
+      weightKg: patientData.weight_kg ? parseFloat(patientData.weight_kg) : null,
+      bloodPressure: patientData.blood_pressure || '',
+      roomNumber: patientData.room_number || '',
+      diagnosis: patientData.diagnosis || '',
+      notes: patientData.notes || '',
+      sensoryPerception: parseInt(patientData.sensory_perception) || 4,
+      moisture: parseInt(patientData.moisture) || 4,
+      activity: parseInt(patientData.activity) || 4,
+      hasUlcer: patientData.has_ulcer || false,
+      ulcerStage: patientData.has_ulcer ? patientData.ulcer_stage : null,
+      ulcerLocation: patientData.has_ulcer ? patientData.ulcer_location : null,
+    };
+    const updated = await patientAPI.update(id, payload);
+    return enrichPatientData(updated);
+  } catch (error) {
+    console.error('Failed to update patient on backend:', error.message);
+    
+    if (config.USE_OFFLINE_FALLBACK) {
+      console.warn('Using offline mode for updating patient');
       USE_OFFLINE_MODE = true;
+      return offlineUpdate(id, patientData);
+    } else {
+      throw new Error('Failed to update patient. Please ensure Spring Boot server is running.');
     }
   }
-  
-  return offlineUpdate(id, patientData);
 };
 
 // Delete patient
 export const deletePatient = async (id) => {
-  if (!USE_OFFLINE_MODE) {
-    try {
-      await patientAPI.delete(id);
-      return true;
-    } catch (error) {
-      console.warn('Backend unavailable, using offline mode:', error.message);
+  try {
+    await patientAPI.delete(id);
+    return true;
+  } catch (error) {
+    console.error('Failed to delete patient on backend:', error.message);
+    
+    if (config.USE_OFFLINE_FALLBACK) {
+      console.warn('Using offline mode for deleting patient');
       USE_OFFLINE_MODE = true;
+      return offlineDelete(id);
+    } else {
+      throw new Error('Failed to delete patient. Please ensure Spring Boot server is running.');
     }
   }
-  
-  return offlineDelete(id);
 };
 
 // Check if using offline mode

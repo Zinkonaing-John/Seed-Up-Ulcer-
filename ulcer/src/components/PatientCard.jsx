@@ -1,10 +1,12 @@
 import React from 'react';
-import { getRiskLevel, getRiskConfig } from '../data/patients';
+import { getRiskLevel, getRiskConfig, getMobilityStatus, getSkinCondition } from '../data/patients';
 
 function PatientCard({ patient, isSelected, onClick, onViewDetails, onDelete, delay }) {
   const riskLevel = getRiskLevel(patient.riskScore);
   const config = getRiskConfig(riskLevel);
   const scorePercentage = Math.round(patient.riskScore * 100);
+  const mobilityStatus = getMobilityStatus(patient.mobility);
+  const skinCondition = getSkinCondition(patient);
 
   const handleNameClick = (e) => {
     e.stopPropagation();
@@ -60,19 +62,34 @@ function PatientCard({ patient, isSelected, onClick, onViewDetails, onDelete, de
                 </svg>
               </h3>
               <p className="text-slate-500 text-sm">
-                Room {patient.room} • {patient.age} years
+                Room {patient.room} • {patient.age}세 • {patient.gender === 'M' ? '남성' : '여성'}
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 mt-4">
             <div>
-              <span className="text-xs text-slate-400 uppercase tracking-wider">Mobility</span>
-              <p className="text-slate-700 text-sm mt-0.5">{patient.mobilityStatus}</p>
+              <span className="text-xs text-slate-400 uppercase tracking-wider">Braden Score</span>
+              <p className={`font-mono font-bold text-lg mt-0.5 ${config.textDark}`}>
+                {patient.bradenScore}/23
+              </p>
             </div>
             <div>
-              <span className="text-xs text-slate-400 uppercase tracking-wider">Skin Status</span>
-              <p className="text-slate-700 text-sm mt-0.5">{patient.skinCondition}</p>
+              <span className="text-xs text-slate-400 uppercase tracking-wider">Ulcer Status</span>
+              <p className={`text-sm mt-0.5 ${patient.has_ulcer ? 'text-red-600 font-medium' : 'text-emerald-600'}`}>
+                {patient.has_ulcer ? `Stage ${patient.ulcer_stage}` : 'None'}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mt-3">
+            <div>
+              <span className="text-xs text-slate-400 uppercase tracking-wider">Mobility</span>
+              <p className="text-slate-700 text-sm mt-0.5">{mobilityStatus}</p>
+            </div>
+            <div>
+              <span className="text-xs text-slate-400 uppercase tracking-wider">Skin</span>
+              <p className="text-slate-700 text-sm mt-0.5 truncate" title={skinCondition}>{skinCondition}</p>
             </div>
           </div>
 
@@ -145,7 +162,7 @@ function PatientCard({ patient, isSelected, onClick, onViewDetails, onDelete, de
 
       {/* ID Badge */}
       <div className="absolute top-4 right-4 text-xs font-mono text-slate-400">
-        {patient.id}
+        #{patient.id}
       </div>
     </div>
   );

@@ -10,19 +10,11 @@ import { getAllPatients, getRiskLevel, createPatient, deletePatient } from '../d
 function Dashboard() {
   const navigate = useNavigate();
   const [patients, setPatients] = useState(getAllPatients());
-  const [selectedPatient, setSelectedPatient] = useState(patients[0] || null);
+  const [selectedPatient, setSelectedPatient] = useState(patients[0]);
   const [filterRisk, setFilterRisk] = useState('all');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [patientToDelete, setPatientToDelete] = useState(null);
-
-  const refreshPatients = () => {
-    const updatedPatients = getAllPatients();
-    setPatients(updatedPatients);
-    if (selectedPatient && !updatedPatients.find(p => p.id === selectedPatient.id)) {
-      setSelectedPatient(updatedPatients[0] || null);
-    }
-  };
 
   const filteredPatients = patients.filter(patient => {
     if (filterRisk === 'all') return true;
@@ -45,15 +37,15 @@ function Dashboard() {
     navigate(`/patient/${patientId}`);
   };
 
-  const handleAddPatient = (patientData) => {
-    const newPatient = createPatient(patientData);
-    refreshPatients();
+  const handleAddPatient = (newPatientData) => {
+    const newPatient = createPatient(newPatientData);
+    setPatients(getAllPatients());
     setSelectedPatient(newPatient);
     setIsAddModalOpen(false);
   };
 
-  const handleDeleteClick = (e, patient) => {
-    e.stopPropagation();
+  const handleDeleteClick = (patientId) => {
+    const patient = patients.find(p => p.id === patientId);
     setPatientToDelete(patient);
     setIsDeleteModalOpen(true);
   };
@@ -61,19 +53,23 @@ function Dashboard() {
   const handleConfirmDelete = () => {
     if (patientToDelete) {
       deletePatient(patientToDelete.id);
-      refreshPatients();
-      setIsDeleteModalOpen(false);
+      const updatedPatients = getAllPatients();
+      setPatients(updatedPatients);
+      if (selectedPatient?.id === patientToDelete.id) {
+        setSelectedPatient(updatedPatients[0] || null);
+      }
       setPatientToDelete(null);
+      setIsDeleteModalOpen(false);
     }
   };
 
   return (
-    <div className="min-h-screen p-6 lg:p-8">
+    <div className="min-h-screen p-6 lg:p-8 bg-gradient-to-br from-gray-50 to-gray-100 text-slate-800">
       {/* Header */}
       <header className="mb-8 animate-fade-in">
-        <div className="flex items-center justify-between flex-wrap gap-4 mb-2">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-clinical-500 to-clinical-700 flex items-center justify-center shadow-lg shadow-clinical-500/20">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-clinical-500 to-clinical-700 flex items-center justify-center shadow-lg">
               <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
@@ -83,28 +79,27 @@ function Dashboard() {
                 Pressure Ulcer Prevention
               </h1>
               <p className="text-slate-500 font-body">
-                Clinical Risk Assessment Dashboard
+                욕창 위험도 평가 대시보드
               </p>
             </div>
           </div>
-
           {/* Add Patient Button */}
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-medium hover:from-emerald-400 hover:to-emerald-500 transition-all shadow-lg shadow-emerald-200 hover:shadow-emerald-300 hover:scale-105"
+            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-medium hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-lg shadow-emerald-200 hover:shadow-emerald-300"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
             Add Patient
           </button>
         </div>
         <div className="flex items-center gap-2 mt-4">
-          <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-clinical-50 border border-clinical-200">
+          <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-clinical-100 border border-clinical-200">
             <span className="w-2 h-2 rounded-full bg-clinical-500 animate-pulse"></span>
             <span className="text-sm text-clinical-700 font-medium">Live Monitoring</span>
           </span>
-          <span className="text-slate-400 text-sm">
+          <span className="text-slate-500 text-sm">
             Last updated: {new Date().toLocaleTimeString()}
           </span>
         </div>
@@ -120,7 +115,6 @@ function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="font-display text-xl font-semibold text-slate-800">
               Patient Risk Monitor
-              <span className="ml-2 text-sm font-normal text-slate-400">({patients.length} patients)</span>
             </h2>
             <div className="flex gap-2">
               {['all', 'critical', 'high', 'moderate', 'low'].map((level) => (
@@ -147,16 +141,13 @@ function Dashboard() {
                 isSelected={selectedPatient?.id === patient.id}
                 onClick={() => handlePatientClick(patient)}
                 onViewDetails={() => handleViewDetails(patient.id)}
-                onDelete={(e) => handleDeleteClick(e, patient)}
+                onDelete={() => handleDeleteClick(patient.id)}
                 delay={index * 100}
               />
             ))}
             {filteredPatients.length === 0 && (
-              <div className="text-center py-12">
-                <svg className="w-16 h-16 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <p className="text-slate-400">No patients match the selected filter</p>
+              <div className="text-center py-12 text-slate-500">
+                No patients match the selected filter
               </div>
             )}
           </div>
@@ -183,7 +174,7 @@ function Dashboard() {
           setPatientToDelete(null);
         }}
         onConfirm={handleConfirmDelete}
-        patientName={patientToDelete?.name}
+        patientName={patientToDelete?.name || ''}
       />
     </div>
   );

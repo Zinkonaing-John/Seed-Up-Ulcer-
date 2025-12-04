@@ -5,11 +5,11 @@ function ThermographyView({ patient, children }) {
   const { t } = useLanguage();
   const [isLive, setIsLive] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
-  const [cameraUrl, setCameraUrl] = useState('http://192.168.10.105:8080/');
+  const [cameraUrl, setCameraUrl] = useState('http://192.168.10.108:8080/');
   const [imageError, setImageError] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  const BASE_CAMERA_IP = 'http://192.168.10.105:8080';
+  const BASE_CAMERA_IP = 'http://192.168.10.108:8080';
 
   // Update timestamp every second when live
   useEffect(() => {

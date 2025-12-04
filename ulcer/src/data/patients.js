@@ -1,5 +1,9 @@
-// Patient data layer - connects to Spring Boot backend
+// Patient data layer - connects to Spring Boot backend with offline fallback
 import { patientAPI } from '../services/api';
+
+// ==================== Configuration ====================
+// Set to true to use mock data (offline mode), false to use backend API
+let USE_OFFLINE_MODE = false;
 
 // ==================== Braden Scale Descriptions ====================
 export const bradenScaleDescriptions = {
@@ -51,19 +55,137 @@ export const ulcerLocations = [
   'Coccyx', 'Left Ischium', 'Right Ischium', 'Left Elbow', 'Right Elbow', 'Occiput', 'Other',
 ];
 
+// ==================== Mock Data for Offline Mode ====================
+let mockPatientCounter = 7;
+let mockPatientsData = [
+  {
+    id: 1,
+    name: '김영희',
+    age: 78,
+    gender: 'F',
+    height_cm: 162.5,
+    weight_kg: 58.0,
+    blood_pressure: '128/82',
+    room_number: '204A',
+    diagnosis: '고관절 골절 수술 후',
+    notes: '페니실린 알레르기. 이동 시 도움 필요.',
+    sensory_perception: 2,
+    moisture: 2,
+    activity: 1,
+    has_ulcer: true,
+    ulcer_stage: '1',
+    ulcer_location: 'Sacrum',
+    created_at: '2024-11-28T08:30:00',
+  },
+  {
+    id: 2,
+    name: '이철수',
+    age: 65,
+    gender: 'M',
+    height_cm: 175.0,
+    weight_kg: 75.5,
+    blood_pressure: '135/85',
+    room_number: '118B',
+    diagnosis: '폐렴 회복 중',
+    notes: '',
+    sensory_perception: 3,
+    moisture: 2,
+    activity: 2,
+    has_ulcer: false,
+    ulcer_stage: null,
+    ulcer_location: null,
+    created_at: '2024-12-01T10:15:00',
+  },
+  {
+    id: 3,
+    name: '박순자',
+    age: 82,
+    gender: 'F',
+    height_cm: 158.0,
+    weight_kg: 60.0,
+    blood_pressure: '140/90',
+    room_number: '305',
+    diagnosis: '뇌졸중, 좌측 편마비',
+    notes: '라텍스 알레르기. 낙상 고위험.',
+    sensory_perception: 1,
+    moisture: 1,
+    activity: 1,
+    has_ulcer: true,
+    ulcer_stage: '2',
+    ulcer_location: 'Sacrum, Left Heel',
+    created_at: '2024-11-25T14:00:00',
+  },
+  {
+    id: 4,
+    name: '정민수',
+    age: 71,
+    gender: 'M',
+    height_cm: 180.0,
+    weight_kg: 80.0,
+    blood_pressure: '130/80',
+    room_number: '112A',
+    diagnosis: '당뇨병',
+    notes: '',
+    sensory_perception: 4,
+    moisture: 3,
+    activity: 2,
+    has_ulcer: false,
+    ulcer_stage: null,
+    ulcer_location: null,
+    created_at: '2024-12-02T09:45:00',
+  },
+  {
+    id: 5,
+    name: '최정숙',
+    age: 88,
+    gender: 'F',
+    height_cm: 155.0,
+    weight_kg: 55.0,
+    blood_pressure: '120/78',
+    room_number: '220',
+    diagnosis: '경도 치매',
+    notes: '자주 방향 감각 상실. 야간 배회.',
+    sensory_perception: 3,
+    moisture: 2,
+    activity: 2,
+    has_ulcer: false,
+    ulcer_stage: null,
+    ulcer_location: null,
+    created_at: '2024-11-30T11:20:00',
+  },
+  {
+    id: 6,
+    name: '강동호',
+    age: 69,
+    gender: 'M',
+    height_cm: 170.0,
+    weight_kg: 90.0,
+    blood_pressure: '125/80',
+    room_number: '301B',
+    diagnosis: '무릎 인공관절 수술 후',
+    notes: '',
+    sensory_perception: 4,
+    moisture: 4,
+    activity: 3,
+    has_ulcer: false,
+    ulcer_stage: null,
+    ulcer_location: null,
+    created_at: '2024-12-03T07:30:00',
+  },
+];
+
 // ==================== Calculation Helpers ====================
 
 // Calculate Braden Score from 3 items (max 12)
 export const calculateBradenScore = (patient) => {
   return (
-    (patient.sensory_perception || 0) +
+    (patient.sensory_perception || patient.sensoryPerception || 0) +
     (patient.moisture || 0) +
     (patient.activity || 0)
   );
 };
 
 // Calculate risk score (0-1) based on Braden Score
-// Braden Score: 3-12, lower = higher risk
 export const calculateRiskScore = (bradenScore) => {
   const risk = Math.max(0, Math.min(1, (12 - bradenScore) / 9));
   return Math.round(risk * 100) / 100;
@@ -140,9 +262,11 @@ export const getActivityStatus = (activityScore) => {
 
 // Get skin condition based on ulcer data
 export const getSkinCondition = (patient) => {
-  if (!patient.has_ulcer) return 'Intact';
-  if (patient.ulcer_stage) {
-    return `Stage ${patient.ulcer_stage} - ${patient.ulcer_location || 'Location not specified'}`;
+  if (!patient.has_ulcer && !patient.hasUlcer) return 'Intact';
+  const stage = patient.ulcer_stage || patient.ulcerStage;
+  const location = patient.ulcer_location || patient.ulcerLocation;
+  if (stage) {
+    return `Stage ${stage} - ${location || 'Location not specified'}`;
   }
   return 'At Risk';
 };
@@ -154,7 +278,7 @@ export const calculateBMI = (height_cm, weight_kg) => {
   return (weight_kg / (heightM * heightM)).toFixed(1);
 };
 
-// Add computed fields to patient data from backend
+// Add computed fields to patient data
 const enrichPatientData = (patient) => {
   const bradenScore = calculateBradenScore(patient);
   const riskScore = calculateRiskScore(bradenScore);
@@ -162,7 +286,7 @@ const enrichPatientData = (patient) => {
     ...patient,
     bradenScore,
     riskScore,
-    // Map snake_case from backend to expected fields if needed
+    // Normalize field names (handle both snake_case and camelCase from backend)
     room_number: patient.room_number || patient.roomNumber,
     height_cm: patient.height_cm || patient.heightCm,
     weight_kg: patient.weight_kg || patient.weightKg,
@@ -175,97 +299,163 @@ const enrichPatientData = (patient) => {
   };
 };
 
-// ==================== API Functions ====================
+// ==================== Offline Mode Functions ====================
 
-// Get all patients from backend
-export const getAllPatients = async () => {
-  try {
-    const patients = await patientAPI.getAll();
-    return patients.map(enrichPatientData);
-  } catch (error) {
-    console.error('Failed to fetch patients:', error);
-    throw error;
-  }
+const offlineGetAll = () => {
+  return mockPatientsData.map(enrichPatientData);
 };
 
-// Get patient by ID from backend
-export const getPatientById = async (id) => {
-  try {
-    const patient = await patientAPI.getById(id);
-    return enrichPatientData(patient);
-  } catch (error) {
-    console.error(`Failed to fetch patient ${id}:`, error);
-    throw error;
+const offlineGetById = (id) => {
+  const patient = mockPatientsData.find(p => p.id === parseInt(id) || p.id === id);
+  return patient ? enrichPatientData(patient) : null;
+};
+
+const offlineCreate = (patientData) => {
+  const newPatient = {
+    id: mockPatientCounter++,
+    ...patientData,
+    created_at: new Date().toISOString(),
+  };
+  mockPatientsData.unshift(newPatient);
+  return enrichPatientData(newPatient);
+};
+
+const offlineUpdate = (id, patientData) => {
+  const index = mockPatientsData.findIndex(p => p.id === parseInt(id) || p.id === id);
+  if (index !== -1) {
+    mockPatientsData[index] = { ...mockPatientsData[index], ...patientData };
+    return enrichPatientData(mockPatientsData[index]);
   }
+  return null;
+};
+
+const offlineDelete = (id) => {
+  const index = mockPatientsData.findIndex(p => p.id === parseInt(id) || p.id === id);
+  if (index !== -1) {
+    mockPatientsData.splice(index, 1);
+    return true;
+  }
+  return false;
+};
+
+// ==================== API Functions with Fallback ====================
+
+// Get all patients
+export const getAllPatients = async () => {
+  // Try API first, fallback to offline mode
+  if (!USE_OFFLINE_MODE) {
+    try {
+      const patients = await patientAPI.getAll();
+      return patients.map(enrichPatientData);
+    } catch (error) {
+      console.warn('Backend unavailable, switching to offline mode:', error.message);
+      USE_OFFLINE_MODE = true;
+    }
+  }
+  
+  // Offline mode
+  console.log('📴 Using offline mode with mock data');
+  return offlineGetAll();
+};
+
+// Get patient by ID
+export const getPatientById = async (id) => {
+  if (!USE_OFFLINE_MODE) {
+    try {
+      const patient = await patientAPI.getById(id);
+      return enrichPatientData(patient);
+    } catch (error) {
+      console.warn('Backend unavailable, switching to offline mode:', error.message);
+      USE_OFFLINE_MODE = true;
+    }
+  }
+  
+  return offlineGetById(id);
 };
 
 // Create new patient
 export const createPatient = async (patientData) => {
-  try {
-    // Map to backend expected format (camelCase for Spring Boot)
-    const payload = {
-      name: patientData.name,
-      age: parseInt(patientData.age),
-      gender: patientData.gender || 'M',
-      heightCm: patientData.height_cm ? parseFloat(patientData.height_cm) : null,
-      weightKg: patientData.weight_kg ? parseFloat(patientData.weight_kg) : null,
-      bloodPressure: patientData.blood_pressure || '',
-      roomNumber: patientData.room_number || '',
-      diagnosis: patientData.diagnosis || '',
-      notes: patientData.notes || '',
-      sensoryPerception: parseInt(patientData.sensory_perception) || 4,
-      moisture: parseInt(patientData.moisture) || 4,
-      activity: parseInt(patientData.activity) || 4,
-      hasUlcer: patientData.has_ulcer || false,
-      ulcerStage: patientData.has_ulcer ? patientData.ulcer_stage : null,
-      ulcerLocation: patientData.has_ulcer ? patientData.ulcer_location : null,
-    };
-
-    const created = await patientAPI.create(payload);
-    return enrichPatientData(created);
-  } catch (error) {
-    console.error('Failed to create patient:', error);
-    throw error;
+  if (!USE_OFFLINE_MODE) {
+    try {
+      const payload = {
+        name: patientData.name,
+        age: parseInt(patientData.age),
+        gender: patientData.gender || 'M',
+        heightCm: patientData.height_cm ? parseFloat(patientData.height_cm) : null,
+        weightKg: patientData.weight_kg ? parseFloat(patientData.weight_kg) : null,
+        bloodPressure: patientData.blood_pressure || '',
+        roomNumber: patientData.room_number || '',
+        diagnosis: patientData.diagnosis || '',
+        notes: patientData.notes || '',
+        sensoryPerception: parseInt(patientData.sensory_perception) || 4,
+        moisture: parseInt(patientData.moisture) || 4,
+        activity: parseInt(patientData.activity) || 4,
+        hasUlcer: patientData.has_ulcer || false,
+        ulcerStage: patientData.has_ulcer ? patientData.ulcer_stage : null,
+        ulcerLocation: patientData.has_ulcer ? patientData.ulcer_location : null,
+      };
+      const created = await patientAPI.create(payload);
+      return enrichPatientData(created);
+    } catch (error) {
+      console.warn('Backend unavailable, using offline mode:', error.message);
+      USE_OFFLINE_MODE = true;
+    }
   }
+  
+  return offlineCreate(patientData);
 };
 
 // Update patient
 export const updatePatient = async (id, patientData) => {
-  try {
-    // Map to backend expected format
-    const payload = {
-      name: patientData.name,
-      age: parseInt(patientData.age),
-      gender: patientData.gender || 'M',
-      heightCm: patientData.height_cm ? parseFloat(patientData.height_cm) : null,
-      weightKg: patientData.weight_kg ? parseFloat(patientData.weight_kg) : null,
-      bloodPressure: patientData.blood_pressure || '',
-      roomNumber: patientData.room_number || '',
-      diagnosis: patientData.diagnosis || '',
-      notes: patientData.notes || '',
-      sensoryPerception: parseInt(patientData.sensory_perception) || 4,
-      moisture: parseInt(patientData.moisture) || 4,
-      activity: parseInt(patientData.activity) || 4,
-      hasUlcer: patientData.has_ulcer || false,
-      ulcerStage: patientData.has_ulcer ? patientData.ulcer_stage : null,
-      ulcerLocation: patientData.has_ulcer ? patientData.ulcer_location : null,
-    };
-
-    const updated = await patientAPI.update(id, payload);
-    return enrichPatientData(updated);
-  } catch (error) {
-    console.error(`Failed to update patient ${id}:`, error);
-    throw error;
+  if (!USE_OFFLINE_MODE) {
+    try {
+      const payload = {
+        name: patientData.name,
+        age: parseInt(patientData.age),
+        gender: patientData.gender || 'M',
+        heightCm: patientData.height_cm ? parseFloat(patientData.height_cm) : null,
+        weightKg: patientData.weight_kg ? parseFloat(patientData.weight_kg) : null,
+        bloodPressure: patientData.blood_pressure || '',
+        roomNumber: patientData.room_number || '',
+        diagnosis: patientData.diagnosis || '',
+        notes: patientData.notes || '',
+        sensoryPerception: parseInt(patientData.sensory_perception) || 4,
+        moisture: parseInt(patientData.moisture) || 4,
+        activity: parseInt(patientData.activity) || 4,
+        hasUlcer: patientData.has_ulcer || false,
+        ulcerStage: patientData.has_ulcer ? patientData.ulcer_stage : null,
+        ulcerLocation: patientData.has_ulcer ? patientData.ulcer_location : null,
+      };
+      const updated = await patientAPI.update(id, payload);
+      return enrichPatientData(updated);
+    } catch (error) {
+      console.warn('Backend unavailable, using offline mode:', error.message);
+      USE_OFFLINE_MODE = true;
+    }
   }
+  
+  return offlineUpdate(id, patientData);
 };
 
 // Delete patient
 export const deletePatient = async (id) => {
-  try {
-    await patientAPI.delete(id);
-    return true;
-  } catch (error) {
-    console.error(`Failed to delete patient ${id}:`, error);
-    throw error;
+  if (!USE_OFFLINE_MODE) {
+    try {
+      await patientAPI.delete(id);
+      return true;
+    } catch (error) {
+      console.warn('Backend unavailable, using offline mode:', error.message);
+      USE_OFFLINE_MODE = true;
+    }
   }
+  
+  return offlineDelete(id);
+};
+
+// Check if using offline mode
+export const isOfflineMode = () => USE_OFFLINE_MODE;
+
+// Force offline mode (for testing)
+export const setOfflineMode = (offline) => {
+  USE_OFFLINE_MODE = offline;
 };

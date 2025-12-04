@@ -7,7 +7,7 @@ import CareInstructions from './CareInstructions';
 import AddPatientModal from './AddPatientModal';
 import DeleteConfirmModal from './DeleteConfirmModal';
 import LanguageToggle from './LanguageToggle';
-import { getAllPatients, getRiskLevel, createPatient, deletePatient } from '../data/patients';
+import { getAllPatients, getRiskLevel, createPatient, deletePatient, isOfflineMode } from '../data/patients';
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -171,10 +171,19 @@ function Dashboard() {
           </div>
         </div>
         <div className="flex items-center gap-2 mt-4">
-          <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-clinical-100 border border-clinical-200">
-            <span className="w-2 h-2 rounded-full bg-clinical-500 animate-pulse"></span>
-            <span className="text-sm text-clinical-700 font-medium">{t.liveMonitoring}</span>
-          </span>
+          {isOfflineMode() ? (
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 border border-amber-300">
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              <span className="text-sm text-amber-700 font-medium">
+                {language === 'ko' ? '📴 오프라인 모드 (데모 데이터)' : '📴 Offline Mode (Demo Data)'}
+              </span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-clinical-100 border border-clinical-200">
+              <span className="w-2 h-2 rounded-full bg-clinical-500 animate-pulse"></span>
+              <span className="text-sm text-clinical-700 font-medium">{t.liveMonitoring}</span>
+            </span>
+          )}
           <span className="text-slate-500 text-sm">
             {t.lastUpdated}: {new Date().toLocaleTimeString()}
           </span>

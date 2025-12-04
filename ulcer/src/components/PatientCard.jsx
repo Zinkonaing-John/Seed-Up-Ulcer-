@@ -131,47 +131,19 @@ function PatientCard({ patient, isSelected, onClick, onViewDetails, onDelete, de
           </div>
         </div>
 
-        {/* Risk Score Display */}
-        <div className="text-right ml-4">
-          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${config.badge} text-white mb-2 shadow-sm`}>
+        {/* Risk Level Display */}
+        <div className="ml-4">
+          <p className="text-xs text-slate-400 uppercase tracking-wider mb-2">
+            {language === 'ko' ? '위험도' : 'Risk Level'}
+          </p>
+          <div className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold ${config.badge} text-white shadow-md`}>
             {riskLevel === 'critical' && (
-              <svg className="w-3.5 h-3.5 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-4 h-4 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
             )}
             {riskLabels[riskLevel]}
           </div>
-          
-          <div className="relative w-20 h-20 mx-auto">
-            <svg className="w-20 h-20 transform -rotate-90">
-              <circle
-                cx="40"
-                cy="40"
-                r="35"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="6"
-                className="text-slate-200"
-              />
-              <circle
-                cx="40"
-                cy="40"
-                r="35"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="6"
-                strokeLinecap="round"
-                strokeDasharray={`${scorePercentage * 2.2} 220`}
-                className={config.text}
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className={`font-mono font-bold text-xl ${config.textDark}`}>
-                {scorePercentage}
-              </span>
-            </div>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">{language === 'ko' ? '위험도' : 'Risk'}</p>
         </div>
       </div>
 

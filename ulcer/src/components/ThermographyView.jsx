@@ -1,14 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 
 function ThermographyView({ patient }) {
   const [isLive, setIsLive] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [cameraUrl, setCameraUrl] = useState('http://192.168.10.105:8080/');
-  const [currentStreamUrl, setCurrentStreamUrl] = useState(cameraUrl);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [connectionError, setConnectionError] = useState(null);
+  const [imageError, setImageError] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const videoRef = useRef(null);
 
   const BASE_CAMERA_IP = 'http://192.168.10.105:8080';
 
@@ -21,7 +18,6 @@ function ThermographyView({ patient }) {
     ];
 
     if (!patient.has_ulcer) {
-      // For at-risk patients without ulcers
       if (patient.bradenScore && patient.bradenScore <= 14) {
         defaultPoints[0].status = 'At Risk';
         defaultPoints[0].temperature = 37.0 + Math.random() * 0.5;
@@ -29,7 +25,6 @@ function ThermographyView({ patient }) {
       return defaultPoints;
     }
 
-    // Parse ulcer locations and update pressure points
     const ulcerLocations = (patient.ulcer_location || '').split(',').map(l => l.trim().toLowerCase());
     
     const pressurePoints = [
@@ -44,11 +39,9 @@ function ThermographyView({ patient }) {
     pressurePoints.forEach(point => {
       const areaLower = point.area.toLowerCase();
       if (ulcerLocations.some(loc => areaLower.includes(loc) || loc.includes(areaLower))) {
-        // This is an ulcer site
         point.status = `Stage ${patient.ulcer_stage}`;
-        point.temperature = 38.0 + Math.random() * 1.5; // Elevated temperature at ulcer site
+        point.temperature = 38.0 + Math.random() * 1.5;
       } else if (patient.bradenScore && patient.bradenScore <= 12) {
-        // High risk areas
         if (Math.random() > 0.5) {
           point.status = 'At Risk';
           point.temperature = 37.0 + Math.random() * 0.8;
@@ -61,6 +54,7 @@ function ThermographyView({ patient }) {
 
   const pressurePoints = generatePressurePoints(patient);
 
+  // Update timestamp every second when live
   useEffect(() => {
     let interval;
     if (isLive) {
@@ -71,33 +65,10 @@ function ThermographyView({ patient }) {
     return () => clearInterval(interval);
   }, [isLive]);
 
+  // Reset error state when URL changes or going live
   useEffect(() => {
     if (isLive) {
-      setIsConnecting(true);
-      setConnectionError(null);
-      const img = new Image();
-      img.onload = () => {
-        setIsConnecting(false);
-        setConnectionError(null);
-        setCurrentStreamUrl(cameraUrl);
-      };
-      img.onerror = () => {
-        setIsConnecting(false);
-        setConnectionError(`Failed to connect to camera at ${cameraUrl}. Check URL and CORS settings.`);
-        setCurrentStreamUrl('');
-      };
-      img.src = cameraUrl;
-
-      if (videoRef.current) {
-        videoRef.current.src = cameraUrl;
-        videoRef.current.load();
-        videoRef.current.play().catch(e => {
-          console.warn("Video autoplay failed:", e);
-        });
-      }
-    } else {
-      setCurrentStreamUrl('');
-      setIsConnecting(false);
+      setImageError(false);
     }
   }, [isLive, cameraUrl]);
 
@@ -125,13 +96,15 @@ function ThermographyView({ patient }) {
   const handleTryEndpoint = (endpoint) => {
     const fullUrl = `${BASE_CAMERA_IP}${endpoint}`;
     setCameraUrl(fullUrl);
+    setImageError(false);
     setIsSettingsOpen(false);
-    setIsLive(true);
   };
 
-  const handleRetryConnection = () => {
-    setConnectionError(null);
-    setIsLive(true);
+  const handleRetry = () => {
+    setImageError(false);
+    // Force re-render by toggling live off/on
+    setIsLive(false);
+    setTimeout(() => setIsLive(true), 100);
   };
 
   return (
@@ -149,7 +122,7 @@ function ThermographyView({ patient }) {
             <h3 className="font-display text-xl font-semibold text-slate-800">
               Thermography Camera / 열화상 카메라
             </h3>
-            <p className="text-sm text-slate-500">Thermal imaging analysis</p>
+            <p className="text-sm text-slate-500">Live feed from {cameraUrl}</p>
           </div>
         </div>
         
@@ -180,149 +153,74 @@ function ThermographyView({ patient }) {
 
       {/* Main Content */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Camera Feed */}
-        <div className="relative rounded-xl overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-300 shadow-lg min-h-[300px] flex items-center justify-center">
-          {isConnecting && (
-            <div className="text-white flex flex-col items-center">
-              <svg className="animate-spin h-8 w-8 text-white mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span>Connecting to camera...</span>
-            </div>
-          )}
+        {/* Camera Feed - Direct img tag for MJPEG stream */}
+        <div className="relative rounded-xl overflow-hidden bg-slate-900 border border-slate-300 shadow-lg min-h-[350px]">
+          {isLive && !imageError ? (
+            <>
+              {/* Live Camera Feed */}
+              <img 
+                src={cameraUrl}
+                alt="Live Camera Feed"
+                className="w-full h-full object-contain"
+                onError={() => setImageError(true)}
+                onLoad={() => setImageError(false)}
+              />
+              
+              {/* Live indicator overlay */}
+              <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 px-3 py-1.5 rounded-lg">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                <span className="text-xs text-white font-mono">LIVE</span>
+              </div>
 
-          {connectionError && !isConnecting && (
-            <div className="text-red-400 flex flex-col items-center p-4 text-center">
-              <svg className="w-10 h-10 mb-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              {/* Timestamp overlay */}
+              <div className="absolute bottom-4 left-4 right-4">
+                <div className="flex items-center justify-between text-xs text-white/80 font-mono bg-black/50 px-3 py-1.5 rounded-lg">
+                  <span>Camera: {cameraUrl}</span>
+                  <span>{lastUpdate.toLocaleTimeString()}</span>
+                </div>
+              </div>
+            </>
+          ) : imageError ? (
+            /* Error State */
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
+              <svg className="w-16 h-16 text-red-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <p className="font-semibold mb-2">Camera Connection Error</p>
-              <p className="text-sm mb-4">{connectionError}</p>
+              <h4 className="text-white font-semibold mb-2">Camera Connection Failed</h4>
+              <p className="text-slate-400 text-sm mb-4">
+                Could not connect to camera at:<br/>
+                <code className="text-amber-400">{cameraUrl}</code>
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleRetry}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm"
+                >
+                  Retry Connection
+                </button>
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors text-sm"
+                >
+                  Change URL
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Paused State */
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <svg className="w-16 h-16 text-slate-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-slate-400">Camera Paused</p>
               <button
-                onClick={handleRetryConnection}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                onClick={() => setIsLive(true)}
+                className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm"
               >
-                Retry Connection
+                Resume Live Feed
               </button>
             </div>
           )}
-
-          {!isConnecting && !connectionError && isLive && currentStreamUrl && (
-            <>
-              {cameraUrl.includes('.mjpg') || cameraUrl.includes('stream') || cameraUrl.includes('action=stream') ? (
-                <img 
-                  src={currentStreamUrl} 
-                  alt="Live Thermal Feed" 
-                  className="w-full h-full object-contain" 
-                  onError={(e) => {
-                    if (!connectionError) setConnectionError(`Failed to load MJPEG stream from ${currentStreamUrl}.`);
-                    e.target.style.display = 'none';
-                  }}
-                />
-              ) : (
-                <video 
-                  ref={videoRef}
-                  src={currentStreamUrl} 
-                  autoPlay 
-                  loop 
-                  muted 
-                  playsInline 
-                  className="w-full h-full object-contain" 
-                  onError={(e) => {
-                    if (!connectionError) setConnectionError(`Failed to load video stream from ${currentStreamUrl}.`);
-                    e.target.style.display = 'none';
-                  }}
-                >
-                  Your browser does not support the video tag.
-                </video>
-              )}
-              
-              {/* Body heat map overlay */}
-              <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 300" preserveAspectRatio="xMidYMid meet">
-                <ellipse cx="100" cy="40" rx="25" ry="30" fill="url(#headGradient)" opacity="0.7"/>
-                <rect x="75" y="65" width="50" height="80" rx="10" fill="url(#bodyGradient)" opacity="0.7"/>
-                <ellipse cx="100" cy="180" rx="35" ry="25" fill="url(#hipGradient)" opacity="0.8"/>
-                <rect x="70" y="200" width="20" height="70" rx="5" fill="url(#legGradient)" opacity="0.6"/>
-                <rect x="110" y="200" width="20" height="70" rx="5" fill="url(#legGradient)" opacity="0.6"/>
-                
-                {pressurePoints.map((point, index) => {
-                  const positions = {
-                    'Sacrum': { cx: 100, cy: 170 },
-                    'Left Heel': { cx: 80, cy: 280 },
-                    'Right Heel': { cx: 120, cy: 280 },
-                    'Left Trochanter': { cx: 65, cy: 175 },
-                    'Right Trochanter': { cx: 135, cy: 175 },
-                    'Coccyx': { cx: 100, cy: 185 },
-                  };
-                  const pos = positions[point.area] || { cx: 100, cy: 150 };
-                  const intensity = (point.temperature - 36) / 3;
-                  
-                  return (
-                    <g key={index}>
-                      <circle 
-                        cx={pos.cx} 
-                        cy={pos.cy} 
-                        r={12 + intensity * 8}
-                        fill={point.status === 'Normal' ? '#10b981' : point.status === 'At Risk' ? '#f59e0b' : '#ef4444'}
-                        opacity={0.4 + intensity * 0.3}
-                        className={point.status !== 'Normal' ? 'animate-pulse' : ''}
-                      />
-                      <circle 
-                        cx={pos.cx} 
-                        cy={pos.cy} 
-                        r={6}
-                        fill={point.status === 'Normal' ? '#10b981' : point.status === 'At Risk' ? '#f59e0b' : '#ef4444'}
-                        opacity="0.9"
-                      />
-                    </g>
-                  );
-                })}
-                
-                <defs>
-                  <radialGradient id="headGradient">
-                    <stop offset="0%" stopColor="#22d3ee" />
-                    <stop offset="100%" stopColor="#0e7490" />
-                  </radialGradient>
-                  <radialGradient id="bodyGradient">
-                    <stop offset="0%" stopColor="#14b8a6" />
-                    <stop offset="100%" stopColor="#0f766e" />
-                  </radialGradient>
-                  <radialGradient id="hipGradient">
-                    <stop offset="0%" stopColor="#f59e0b" />
-                    <stop offset="100%" stopColor="#d97706" />
-                  </radialGradient>
-                  <radialGradient id="legGradient">
-                    <stop offset="0%" stopColor="#06b6d4" />
-                    <stop offset="100%" stopColor="#0891b2" />
-                  </radialGradient>
-                </defs>
-              </svg>
-            </>
-          )}
-
-          {/* Overlay info */}
-          <div className="absolute top-4 left-4 flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${isLive ? 'bg-red-500 animate-pulse' : 'bg-slate-500'}`}></span>
-            <span className="text-xs text-slate-300 font-mono">{isLive ? 'REC' : 'PAUSED'}</span>
-          </div>
-
-          <div className="absolute bottom-4 left-4 right-4">
-            <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
-              <span>Camera: FLIR C5</span>
-              <span>{lastUpdate.toLocaleTimeString()}</span>
-            </div>
-          </div>
-
-          {/* Temperature scale */}
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-32 rounded-full overflow-hidden">
-            <div className="w-full h-full bg-gradient-to-b from-red-500 via-yellow-500 via-green-500 to-blue-500"></div>
-          </div>
-          <div className="absolute right-10 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-mono space-y-6">
-            <div>40°C</div>
-            <div>37°C</div>
-            <div>34°C</div>
-          </div>
         </div>
 
         {/* Pressure Points Analysis */}
@@ -402,51 +300,64 @@ function ThermographyView({ patient }) {
 
       {/* Settings Modal */}
       {isSettingsOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
-            <h3 className="text-xl font-bold mb-4 text-slate-800">Camera Settings</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md animate-slide-up">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-slate-800">Camera Settings</h3>
+              <button 
+                onClick={() => setIsSettingsOpen(false)}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-500"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
             <div className="mb-4">
-              <label htmlFor="cameraUrlInput" className="block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Camera Stream URL
               </label>
               <input
                 type="text"
-                id="cameraUrlInput"
                 value={cameraUrl}
                 onChange={handleUrlChange}
-                className="w-full p-2 border border-slate-300 rounded-md text-slate-800 bg-slate-50"
-                placeholder="e.g., http://192.168.1.100:8080/video"
+                className="w-full p-3 border border-slate-300 rounded-xl text-slate-800 bg-slate-50 focus:outline-none focus:border-clinical-500 focus:ring-2 focus:ring-clinical-100"
+                placeholder="http://192.168.10.105:8080/"
               />
             </div>
-            <div className="mb-4">
+            
+            <div className="mb-6">
               <p className="text-sm font-medium text-slate-700 mb-2">Common Endpoints</p>
               <div className="grid grid-cols-2 gap-2">
                 {commonEndpoints.map(endpoint => (
                   <button
                     key={endpoint}
                     onClick={() => handleTryEndpoint(endpoint)}
-                    className="p-2 bg-slate-100 border border-slate-300 rounded-md text-sm text-slate-700 hover:bg-slate-200 transition-colors"
+                    className="p-2 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700 hover:bg-slate-200 hover:border-slate-300 transition-colors"
                   >
-                    {endpoint === '/' ? 'Base URL' : endpoint}
+                    {endpoint === '/' ? 'Base URL (/)' : endpoint}
                   </button>
                 ))}
               </div>
             </div>
+            
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setIsSettingsOpen(false)}
-                className="px-4 py-2 bg-slate-200 text-slate-700 rounded-md hover:bg-slate-300 transition-colors"
+                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors"
               >
-                Close
+                Cancel
               </button>
               <button
                 onClick={() => {
+                  setImageError(false);
                   setIsSettingsOpen(false);
                   setIsLive(true);
                 }}
-                className="px-4 py-2 bg-clinical-600 text-white rounded-md hover:bg-clinical-700 transition-colors"
+                className="px-4 py-2 bg-clinical-600 text-white rounded-xl hover:bg-clinical-700 transition-colors"
               >
-                Apply & Go Live
+                Apply & Connect
               </button>
             </div>
           </div>

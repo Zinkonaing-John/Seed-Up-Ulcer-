@@ -53,9 +53,6 @@ function PatientDetail() {
       weight: '체중',
       bmi: 'BMI',
       bloodPressure: '혈압',
-      sensoryPerception: '감각 인지',
-      moisture: '습기',
-      bradenScore: '브레이든 점수',
       ulcerStatus: '욕창 상태',
       ulcerLocation: '발생 부위',
       stage: '단계',
@@ -86,9 +83,6 @@ function PatientDetail() {
       weight: 'Weight',
       bmi: 'BMI',
       bloodPressure: 'Blood Pressure',
-      sensoryPerception: 'Sensory Perception',
-      moisture: 'Moisture',
-      bradenScore: 'Braden Score',
       ulcerStatus: 'Ulcer Status',
       ulcerLocation: 'Location',
       stage: 'Stage',
@@ -322,28 +316,6 @@ function PatientDetail() {
                   <p className="text-slate-800 font-mono font-bold text-lg">{patient.blood_pressure}</p>
                 </div>
               )}
-
-              {/* Braden Score Compact */}
-              <div className="p-3 bg-gradient-to-r from-clinical-50 to-clinical-100 rounded-lg border border-clinical-200">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-clinical-700 uppercase tracking-wider font-semibold">{t.bradenScore}</p>
-                  <p className={`font-mono font-bold text-xl ${config.textDark}`}>{patient.bradenScore}/12</p>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="bg-white/50 rounded p-2">
-                    <p className="text-slate-600 mb-0.5">{t.sensoryPerception}</p>
-                    <p className="font-bold text-clinical-700">{patient.sensory_perception}/4</p>
-                  </div>
-                  <div className="bg-white/50 rounded p-2">
-                    <p className="text-slate-600 mb-0.5">{t.moisture}</p>
-                    <p className="font-bold text-clinical-700">{patient.moisture}/4</p>
-                  </div>
-                  <div className="bg-white/50 rounded p-2">
-                    <p className="text-slate-600 mb-0.5">{t.activity}</p>
-                    <p className="font-bold text-clinical-700">{patient.activity}/4</p>
-                  </div>
-                </div>
-              </div>
 
               {/* Activity & Registration */}
               <div className="grid grid-cols-2 gap-3">

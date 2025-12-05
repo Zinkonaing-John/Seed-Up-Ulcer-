@@ -66,9 +66,15 @@ function Dashboard() {
 
   // Test backend connection
   const checkBackendConnection = useCallback(async () => {
-    const status = await testBackendConnection();
-    setBackendStatus(status);
-    return status;
+    try {
+      const status = await testBackendConnection();
+      setBackendStatus(status);
+      return status;
+    } catch (error) {
+      const errorStatus = { online: false, error: error.message };
+      setBackendStatus(errorStatus);
+      return errorStatus;
+    }
   }, []);
 
   // Fetch patients from backend
@@ -91,6 +97,11 @@ function Dashboard() {
       setIsLoading(false);
     }
   }, [selectedPatient, t.error, checkBackendConnection]);
+
+  // Check backend connection on mount
+  useEffect(() => {
+    checkBackendConnection();
+  }, [checkBackendConnection]);
 
   useEffect(() => {
     fetchPatients();
@@ -185,26 +196,36 @@ function Dashboard() {
           </div>
         </div>
         <div className="flex items-center gap-2 mt-4 flex-wrap">
-          {isOfflineMode() ? (
-            <button
-              onClick={() => setShowBackendInfo(!showBackendInfo)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-100 border border-amber-300 hover:bg-amber-200 transition-colors cursor-pointer"
-            >
-              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-              <span className="text-sm text-amber-700 font-medium">
-                {language === 'ko' ? '📴 오프라인 모드 (데모 데이터)' : '📴 Offline Mode (Demo Data)'}
+          {backendStatus === null ? (
+            // Initial loading state
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-300">
+              <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+              <span className="text-sm text-slate-600 font-medium">
+                {language === 'ko' ? '연결 확인 중...' : 'Checking connection...'}
               </span>
-              <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
-          ) : (
+            </span>
+          ) : backendStatus.online ? (
+            // Backend is connected
             <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-100 border border-emerald-300">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span className="text-sm text-emerald-700 font-medium">
                 {language === 'ko' ? '🌐 백엔드 연결됨' : '🌐 Backend Connected'}
               </span>
             </span>
+          ) : (
+            // Backend is NOT connected
+            <button
+              onClick={() => setShowBackendInfo(!showBackendInfo)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-100 border border-red-300 hover:bg-red-200 transition-colors cursor-pointer"
+            >
+              <span className="w-2 h-2 rounded-full bg-red-500"></span>
+              <span className="text-sm text-red-700 font-medium">
+                {language === 'ko' ? '❌ 백엔드 연결 안됨' : '❌ Backend Not Connected'}
+              </span>
+              <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
           )}
           <span className="text-slate-500 text-sm">
             {t.lastUpdated}: {new Date().toLocaleTimeString()}

@@ -1,26 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { getActivityStatus, getSkinCondition } from '../data/patients';
-
-// Backend LLM API Configuration
-const LLM_API_URL = 'http://localhost:5000/api/care-recommendations';
-const MAX_TOKENS = 200;
+import api from '../services/api';
 
 function CareInstructions({ patient }) {
   const { language } = useLanguage();
   const [aiResponse, setAiResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const previousPredictionRef = useRef(null); // Store previous prediction for comparison
+
 
   const labels = {
     ko: {
       title: 'AI 케어 권장사항',
       room: '병실',
-      bradenScore: '브레이든 점수',
       generating: '권장사항 생성 중...',
       offline: '오프라인 권장사항 사용 중',
       backendError: '백엔드 사용 불가',
-      maxTokens: '최대 토큰',
       verify: '항상 임상적 판단으로 확인하세요',
       clickRefresh: '새로고침을 클릭하여 권장사항을 생성하세요',
       selectPatient: '환자를 선택하여 케어 지침을 확인하세요',
@@ -28,11 +24,9 @@ function CareInstructions({ patient }) {
     en: {
       title: 'AI Care Recommendations',
       room: 'Room',
-      bradenScore: 'Braden Score',
       generating: 'Generating recommendations...',
       offline: 'Using offline recommendations',
       backendError: 'Backend unavailable',
-      maxTokens: 'Max tokens',
       verify: 'Always verify with clinical judgment',
       clickRefresh: 'Click refresh to generate recommendations',
       selectPatient: 'Select a patient to view care instructions',
@@ -41,26 +35,104 @@ function CareInstructions({ patient }) {
 
   const t = labels[language] || labels.en;
 
-  // Build prompt for LLM
-  const buildPrompt = useCallback((patient) => {
-    const lang = language === 'ko' ? 'Korean' : 'English';
-    return `You are a clinical assistant AI for pressure ulcer prevention. Provide a brief, actionable care summary for nursing staff in ${lang}.
+  // Check if response indicates no thermal image data
+  const hasNoData = useCallback((prediction) => {
+    if (!prediction || !prediction.predictionMessage) return true;
+    
+    const noDataIndicators = [
+      '열화상 데이터가 없어',
+      '아직 열화상 데이터가 없어',
+      '데이터가 없어',
+      '평가할 수 없습니다',
+      'no thermal image',
+      'no data available',
+      'cannot be assessed'
+    ];
+    
+    const message = prediction.predictionMessage.toLowerCase();
+    return noDataIndicators.some(indicator => message.includes(indicator.toLowerCase()));
+  }, []);
 
-Patient: ${patient.name}, ${patient.age}${language === 'ko' ? '세' : ' years'}, ${patient.gender === 'M' ? 'Male' : 'Female'}
-Room: ${patient.room_number}
-Diagnosis: ${patient.diagnosis || 'Not specified'}
-Braden Score: ${patient.bradenScore}/12 (Sensory: ${patient.sensory_perception}/4, Moisture: ${patient.moisture}/4, Activity: ${patient.activity}/4)
-Risk Level: ${patient.riskScore >= 0.7 ? 'Critical' : patient.riskScore >= 0.5 ? 'High' : patient.riskScore >= 0.3 ? 'Moderate' : 'Low'}
-Activity: ${getActivityStatus(patient.activity)}
-Skin: ${getSkinCondition(patient)}
-Has Ulcer: ${patient.has_ulcer ? `Yes - Stage ${patient.ulcer_stage} at ${patient.ulcer_location}` : 'No'}
-Blood Pressure: ${patient.blood_pressure || 'Not recorded'}
-${patient.notes ? `Notes: ${patient.notes}` : ''}
+  // Format prediction response for display
+  const formatPredictionResponse = useCallback((prediction) => {
+    // If no data from backend, return empty string
+    if (hasNoData(prediction)) {
+      return '';
+    }
+    
+    let formattedResponse = '';
+    
+    if (language === 'ko') {
+      formattedResponse = `🔍 AI 욕창 위험도 분석\n\n`;
+      formattedResponse += `위험도: ${prediction.riskLevel}\n\n`;
+      formattedResponse += `📋 상세 분석:\n${prediction.predictionMessage}\n\n`;
+      
+      // Add care recommendations based on risk level
+      if (prediction.riskLevel === '위험' || prediction.riskLevel === '고위험' || prediction.riskLevel === '위급') {
+        formattedResponse += `⚠️ 권장 조치:\n`;
+        formattedResponse += `• 2시간마다 체위 변경 필수\n`;
+        formattedResponse += `• 압력 부위 집중 관찰\n`;
+        formattedResponse += `• 압력 완화 기구 적용\n`;
+        formattedResponse += `• 즉시 담당 의료진에게 보고\n`;
+      } else if (prediction.riskLevel === '중간' || prediction.riskLevel === '주의') {
+        formattedResponse += `✓ 권장 조치:\n`;
+        formattedResponse += `• 정기적인 체위 변경 유지\n`;
+        formattedResponse += `• 매일 피부 상태 확인\n`;
+        formattedResponse += `• 적절한 영양 및 수분 공급\n`;
+      } else {
+        formattedResponse += `✓ 현재 상태 양호\n`;
+        formattedResponse += `• 일반적인 케어 프로토콜 유지\n`;
+        formattedResponse += `• 정기적인 관찰 지속\n`;
+      }
+    } else {
+      formattedResponse = `🔍 AI Pressure Ulcer Risk Analysis\n\n`;
+      formattedResponse += `Risk Level: ${prediction.riskLevel}\n\n`;
+      formattedResponse += `📋 Detailed Analysis:\n${prediction.predictionMessage}\n\n`;
+      
+      // Add care recommendations based on risk level
+      if (prediction.riskLevel === '위험' || prediction.riskLevel === '고위험' || prediction.riskLevel === '위급') {
+        formattedResponse += `⚠️ Recommended Actions:\n`;
+        formattedResponse += `• Reposition patient every 2 hours\n`;
+        formattedResponse += `• Monitor pressure points closely\n`;
+        formattedResponse += `• Apply pressure-relieving devices\n`;
+        formattedResponse += `• Report to medical staff immediately\n`;
+      } else if (prediction.riskLevel === '중간' || prediction.riskLevel === '주의') {
+        formattedResponse += `✓ Recommended Actions:\n`;
+        formattedResponse += `• Continue regular repositioning\n`;
+        formattedResponse += `• Daily skin assessments\n`;
+        formattedResponse += `• Ensure adequate nutrition and hydration\n`;
+      } else {
+        formattedResponse += `✓ Current status is good\n`;
+        formattedResponse += `• Maintain standard care protocol\n`;
+        formattedResponse += `• Continue regular monitoring\n`;
+      }
+    }
+    
+    return formattedResponse;
+  }, [language, hasNoData]);
 
-Provide concise care recommendations in ${lang}. Focus on immediate actionable steps for nursing staff.`;
-  }, [language]);
+  // Compare two predictions to check if data has meaningfully changed
+  // Only considers risk level changes as meaningful (ignores message wording variations)
+  const hasPredictionChanged = useCallback((oldPred, newPred) => {
+    if (!oldPred && !newPred) return false; // Both null
+    if (!oldPred || !newPred) return true; // One is null, other isn't
+    
+    // ONLY compare risk level - this is the primary indicator of change
+    // Message variations from AI are ignored if risk level stays the same
+    // This prevents false updates when AI generates slightly different wording for the same image
+    const oldRisk = oldPred.riskLevel || null;
+    const newRisk = newPred.riskLevel || null;
+    
+    if (oldRisk !== newRisk) {
+      return true; // Risk level changed - definitely meaningful
+    }
+    
+    // Risk level is the same - no meaningful change
+    // Even if message wording is slightly different, we ignore it
+    return false;
+  }, []);
 
-  // Fetch AI recommendations from backend
+  // Fetch AI recommendations from external LLM endpoint
   const fetchAIRecommendations = useCallback(async () => {
     if (!patient) return;
 
@@ -68,110 +140,52 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
     setError(null);
 
     try {
-      const response = await fetch(LLM_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: buildPrompt(patient),
-          max_tokens: MAX_TOKENS,
-          language: language,
-          patient_data: {
-            id: patient.id,
-            name: patient.name,
-            age: patient.age,
-            gender: patient.gender,
-            room_number: patient.room_number,
-            diagnosis: patient.diagnosis,
-            bradenScore: patient.bradenScore,
-            riskScore: patient.riskScore,
-            activity: patient.activity,
-            has_ulcer: patient.has_ulcer,
-            ulcer_stage: patient.ulcer_stage,
-            ulcer_location: patient.ulcer_location,
-          },
-        }),
-      });
-
-      if (!response.ok) throw new Error(`API Error: ${response.status}`);
-
-      const data = await response.json();
-      setAiResponse(data.recommendation || data.response || data.message || (language === 'ko' ? 'AI 응답이 없습니다.' : 'No response from AI.'));
+      // Call external LLM API for pressure ulcer prediction
+      const prediction = await api.llm.getPressureUlcerPrediction(patient.id);
+      
+      // Check if data has actually changed
+      const hasChanged = hasPredictionChanged(previousPredictionRef.current, prediction);
+      
+      if (!hasChanged) {
+        console.log('📊 No changes detected, skipping update');
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log('🔄 Changes detected, updating UI');
+      previousPredictionRef.current = prediction; // Store for next comparison
+      
+      // Check if backend indicates no data
+      if (hasNoData(prediction)) {
+        // No thermal image data - show nothing
+        setAiResponse('');
+        setError(null);
+      } else {
+        // Valid data from backend - format and display
+        const formatted = formatPredictionResponse(prediction);
+        setAiResponse(formatted);
+        setError(null);
+      }
+      
+      setIsLoading(false);
     } catch (err) {
-      console.error('LLM API Error:', err);
+      console.error('External LLM API Error:', err);
       setError(err.message);
-      generateLocalFallback();
-    } finally {
+      setAiResponse('');
       setIsLoading(false);
     }
-  }, [patient, buildPrompt, language]);
+  }, [patient, formatPredictionResponse, hasNoData, hasPredictionChanged]);
 
-  // Local fallback if backend is unavailable
-  const generateLocalFallback = useCallback(() => {
-    const bradenScore = patient?.bradenScore || 12;
-    
-    let response = '';
-    
-    if (language === 'ko') {
-      if (bradenScore <= 6 || patient?.has_ulcer) {
-        response = `⚠️ 고위험 환자 - 즉각적인 조치 필요\n\n`;
-        response += `• 2시간마다 체위 변경 필수\n`;
-        response += `• 모든 압력 부위 피부 상태 확인\n`;
-        response += `• 압력 완화 기구 적용\n`;
-        if (patient?.has_ulcer) {
-          response += `• 욕창 상태 기록 및 상처 관리팀 보고\n`;
-        }
-        if (patient?.moisture <= 2) {
-          response += `• 피부를 깨끗하고 건조하게 유지\n`;
-        }
-        if (patient?.activity <= 2) {
-          response += `• 가능한 범위 내 운동 격려\n`;
-        }
-      } else {
-        response = `✓ 저위험 환자 - 표준 케어 프로토콜\n\n`;
-        response += `• 정기적인 체위 변경 유지\n`;
-        response += `• 매일 피부 검사 실시\n`;
-        response += `• 적절한 영양 및 수분 공급 확인\n`;
-        response += `• 활동 및 이동성 격려\n`;
-      }
-      if (patient?.notes) {
-        response += `\n📋 특이사항: ${patient.notes}\n`;
-      }
-    } else {
-      if (bradenScore <= 6 || patient?.has_ulcer) {
-        response = `⚠️ HIGH RISK - Immediate attention required\n\n`;
-        response += `• Reposition patient every 2 hours\n`;
-        response += `• Check all pressure points for skin changes\n`;
-        response += `• Apply pressure-relieving devices\n`;
-        if (patient?.has_ulcer) {
-          response += `• Document ulcer status and notify wound care team\n`;
-        }
-        if (patient?.moisture <= 2) {
-          response += `• Keep skin clean and dry\n`;
-        }
-        if (patient?.activity <= 2) {
-          response += `• Encourage range of motion exercises\n`;
-        }
-      } else {
-        response = `✓ LOW RISK - Standard care protocol\n\n`;
-        response += `• Continue regular repositioning schedule\n`;
-        response += `• Maintain daily skin inspections\n`;
-        response += `• Ensure adequate nutrition and hydration\n`;
-        response += `• Encourage activity and mobility\n`;
-      }
-      if (patient?.notes) {
-        response += `\n📋 Notes: ${patient.notes}\n`;
-      }
-    }
-    
-    setAiResponse(response);
-  }, [patient, language]);
-
-  // Fetch on patient or language change
+  // Fetch AI recommendations when patient changes
   useEffect(() => {
-    if (patient) {
-      fetchAIRecommendations();
-    }
-  }, [patient?.id, language, fetchAIRecommendations]);
+    if (!patient) return;
+
+    // Reset previous prediction when patient changes
+    previousPredictionRef.current = null;
+
+    // Fetch AI recommendations
+    fetchAIRecommendations();
+  }, [patient?.id, fetchAIRecommendations]);
 
   if (!patient) {
     return (
@@ -179,20 +193,36 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
     );
   }
 
-  const getRiskLevel = (bradenScore) => {
-    if (language === 'ko') {
-      if (bradenScore <= 4) return { label: '위험', color: 'text-red-600', bg: 'bg-red-100' };
-      if (bradenScore <= 6) return { label: '높음', color: 'text-orange-600', bg: 'bg-orange-100' };
-      if (bradenScore <= 8) return { label: '중간', color: 'text-amber-600', bg: 'bg-amber-100' };
-      return { label: '낮음', color: 'text-emerald-600', bg: 'bg-emerald-100' };
+  // Get risk level from AI response if available
+  const getRiskLevelFromAI = () => {
+    if (!aiResponse) return null;
+    
+    // Extract risk level from AI response
+    const riskMatch = aiResponse.match(/위험도:\s*([^\n]+)/) || aiResponse.match(/Risk Level:\s*([^\n]+)/);
+    if (riskMatch) {
+      const riskLevel = riskMatch[1].trim();
+      if (language === 'ko') {
+        if (riskLevel === '위험' || riskLevel === '고위험' || riskLevel === '위급') {
+          return { label: riskLevel, color: 'text-red-600', bg: 'bg-red-100' };
+        } else if (riskLevel === '중간' || riskLevel === '주의') {
+          return { label: riskLevel, color: 'text-amber-600', bg: 'bg-amber-100' };
+        } else {
+          return { label: riskLevel, color: 'text-emerald-600', bg: 'bg-emerald-100' };
+        }
+      } else {
+        if (riskLevel === '위험' || riskLevel === '고위험' || riskLevel === '위급') {
+          return { label: 'HIGH', color: 'text-red-600', bg: 'bg-red-100' };
+        } else if (riskLevel === '중간' || riskLevel === '주의') {
+          return { label: 'MODERATE', color: 'text-amber-600', bg: 'bg-amber-100' };
+        } else {
+          return { label: 'LOW', color: 'text-emerald-600', bg: 'bg-emerald-100' };
+        }
+      }
     }
-    if (bradenScore <= 4) return { label: 'CRITICAL', color: 'text-red-600', bg: 'bg-red-100' };
-    if (bradenScore <= 6) return { label: 'HIGH', color: 'text-orange-600', bg: 'bg-orange-100' };
-    if (bradenScore <= 8) return { label: 'MODERATE', color: 'text-amber-600', bg: 'bg-amber-100' };
-    return { label: 'LOW', color: 'text-emerald-600', bg: 'bg-emerald-100' };
+    return null;
   };
 
-  const risk = getRiskLevel(patient.bradenScore);
+  const risk = getRiskLevelFromAI();
 
   return (
     <div className="h-full flex flex-col bg-white rounded-2xl shadow-lg p-5">
@@ -206,7 +236,7 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
           </div>
           <h2 className="font-display text-lg font-semibold text-slate-800">{t.title}</h2>
         </div>
-        
+
         <button onClick={fetchAIRecommendations} disabled={isLoading}
           className="p-2 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors disabled:opacity-50"
           title={language === 'ko' ? '새로고침' : 'Refresh'}>
@@ -220,11 +250,13 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
       <div className="flex items-center justify-between mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
         <div>
           <p className="font-medium text-slate-800">{patient.name}</p>
-          <p className="text-xs text-slate-500">{t.room} {patient.room_number} • {t.bradenScore}: {patient.bradenScore}/12</p>
+          <p className="text-xs text-slate-500">{t.room} {patient.room_number}</p>
         </div>
-        <div className={`px-3 py-1.5 rounded-lg ${risk.bg} ${risk.color} font-bold text-sm`}>
-          {risk.label}
-        </div>
+        {risk && (
+          <div className={`px-3 py-1.5 rounded-lg ${risk.bg} ${risk.color} font-bold text-sm`}>
+            {risk.label}
+          </div>
+        )}
       </div>
 
       {/* AI Response Area */}
@@ -235,31 +267,34 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
             <p className="text-slate-500 text-sm">{t.generating}</p>
           </div>
         ) : error ? (
-          <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-            <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-amber-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-              <div>
-                <p className="text-amber-700 font-medium text-sm">{t.offline}</p>
-                <p className="text-amber-600 text-xs mt-1">{t.backendError}: {error}</p>
-              </div>
-            </div>
-            {aiResponse && (
-              <div className="mt-4 p-4 bg-white rounded-lg border border-slate-200">
-                <pre className="whitespace-pre-wrap text-slate-700 text-sm font-sans leading-relaxed">{aiResponse}</pre>
-              </div>
-            )}
+          <div className="flex flex-col items-center justify-center h-full py-8 text-center">
+            <svg className="w-12 h-12 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-slate-400 text-sm">{language === 'ko' ? 'AI 분석을 불러올 수 없습니다' : 'Unable to load AI analysis'}</p>
+            <button 
+              onClick={fetchAIRecommendations}
+              className="mt-3 px-4 py-2 text-xs bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+            >
+              {language === 'ko' ? '다시 시도' : 'Retry'}
+            </button>
           </div>
-        ) : (
+        ) : aiResponse ? (
           <div className={`p-4 rounded-xl border ${
-            patient.bradenScore <= 6 || patient.has_ulcer 
+            risk && (risk.label === '위험' || risk.label === '고위험' || risk.label === '위급' || risk.label === 'HIGH' || patient.has_ulcer)
               ? 'bg-gradient-to-br from-red-50 to-orange-50 border-red-200' 
               : 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200'
           }`}>
             <pre className="whitespace-pre-wrap text-slate-700 text-sm font-sans leading-relaxed">
-              {aiResponse || t.clickRefresh}
+              {aiResponse}
             </pre>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full py-8 text-center">
+            <svg className="w-12 h-12 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            <p className="text-slate-400 text-sm mb-2">{t.clickRefresh}</p>
           </div>
         )}
       </div>
@@ -267,7 +302,7 @@ Provide concise care recommendations in ${lang}. Focus on immediate actionable s
       {/* Footer */}
       <div className="mt-4 pt-3 border-t border-slate-200">
         <p className="text-xs text-slate-400 italic">
-          {t.maxTokens}: {MAX_TOKENS} • {t.verify}
+          🤖 AI 분석 • {t.verify}
         </p>
       </div>
     </div>

@@ -29,6 +29,20 @@ function ThermographyView({ patient, children }) {
     }
   }, [isLive, cameraUrl]);
 
+  // Set connection timeout when trying to connect
+  useEffect(() => {
+    if (isLive && !imageError) {
+      const timeout = setTimeout(() => {
+        console.warn('Camera connection timeout - camera may be unavailable');
+        setImageError(true);
+      }, 10000); // 10 second timeout
+
+      return () => {
+        clearTimeout(timeout);
+      };
+    }
+  }, [isLive, imageError, cameraUrl]);
+
   const commonEndpoints = [
     { path: '/', label: 'Base (/)' },
     { path: '/video', label: '/video' },
@@ -116,13 +130,18 @@ function ThermographyView({ patient, children }) {
                 alt="Live Camera Feed"
                 className="w-full h-full object-contain"
                 onError={(e) => {
-                  console.error('Camera stream error:', cameraUrl);
+                  // Suppress console error - it's expected when camera is unavailable
+                  // Only log if in development mode to reduce console noise
+                  if (process.env.NODE_ENV === 'development') {
+                    console.warn('Camera stream unavailable:', cameraUrl);
+                  }
                   setImageError(true);
                 }}
                 onLoad={() => {
-                  console.log('Camera stream loaded:', cameraUrl);
+                  // Successfully loaded - clear any error state
                   setImageError(false);
                 }}
+                crossOrigin="anonymous"
               />
               
               {/* Live indicator overlay */}

@@ -158,6 +158,39 @@ export const llmAPI = {
       throw error;
     }
   },
+
+  // GET external LLM pressure ulcer prediction (DIRECT - Simple fetch)
+  getPressureUlcerPrediction: async (patientId) => {
+    // Direct call to external API - simple fetch
+    const API_URL = `http://jvision.s2x.kr:8030/api/ai/pressure-ulcer/predict/latest/${patientId}`;
+    
+    try {
+      console.log(`🌐 Fetching AI prediction for patient ${patientId}...`);
+      console.log(`📍 URL: ${API_URL}`);
+      
+      const response = await fetch(API_URL);
+
+      console.log(`📡 Response status: ${response.status} ${response.statusText}`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ AI Prediction received:', data);
+      console.log(`📊 Risk Level: ${data.riskLevel}`);
+      console.log(`📝 Message: ${data.predictionMessage}`);
+      
+      return {
+        patientId: data.patientId,
+        riskLevel: data.riskLevel,
+        predictionMessage: data.predictionMessage,
+      };
+    } catch (error) {
+      console.error(`❌ Failed to get AI prediction for patient ${patientId}:`, error);
+      throw error;
+    }
+  },
 };
 
 // Get backend status

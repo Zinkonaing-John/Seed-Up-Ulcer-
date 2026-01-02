@@ -35,6 +35,8 @@
     ]
   },
   "devDependencies": {
+    "@tailwindcss/container-queries": "^0.1.1",
+    "@tailwindcss/forms": "^0.5.11",
     "cors": "^2.8.5",
     "express": "^5.2.1",
     "http-proxy-middleware": "^3.0.5",

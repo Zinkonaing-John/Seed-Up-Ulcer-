@@ -1,12 +1,23 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: "class",
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
     extend: {
       colors: {
-        // Clinical teal palette
+        "primary": "#13b6ec",
+        "primary-dark": "#0ea5d6",
+        "background-light": "#f6f8f8",
+        "background-dark": "#101d22",
+        "surface-light": "#ffffff",
+        "surface-dark": "#18282f",
+        "text-main": "#0d181b",
+        "text-sub": "#4c869a",
+        "border-light": "#cfe1e7",
+        "border-dark": "#2a3e47",
+        // Clinical teal palette (keeping for compatibility)
         clinical: {
           50: '#f0fdfa',
           100: '#ccfbf1',
@@ -33,9 +44,19 @@ module.exports = {
         }
       },
       fontFamily: {
-        'display': ['DM Sans', 'system-ui', 'sans-serif'],
+        "display": ["Inter", "sans-serif"],
         'body': ['IBM Plex Sans', 'system-ui', 'sans-serif'],
         'mono': ['JetBrains Mono', 'monospace'],
+      },
+      borderRadius: { 
+        "DEFAULT": "0.25rem", 
+        "lg": "0.5rem", 
+        "xl": "0.75rem", 
+        "full": "9999px" 
+      },
+      boxShadow: {
+        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+        'card': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -54,5 +75,5 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [require('@tailwindcss/forms'), require('@tailwindcss/container-queries')],
 }

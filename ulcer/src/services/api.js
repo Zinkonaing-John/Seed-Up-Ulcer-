@@ -18,7 +18,7 @@ const fetchAPI = async (endpoint, options = {}) => {
     'Content-Type': 'application/json',
   };
 
-  const config = {
+  const fetchConfig = {
     ...options,
     headers: {
       ...defaultHeaders,
@@ -30,7 +30,7 @@ const fetchAPI = async (endpoint, options = {}) => {
   try {
     console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
     
-    const response = await fetch(url, config);
+    const response = await fetch(url, fetchConfig);
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -59,7 +59,7 @@ const fetchAPI = async (endpoint, options = {}) => {
     
     // Provide helpful error messages
     if (error.name === 'AbortError' || error.message.includes('fetch')) {
-      throw new Error('Backend server is not responding. Please check if Spring Boot is running on http://localhost:8080');
+      throw new Error(`Backend server is not responding. Please check if the server is running at ${API_BASE_URL}`);
     }
     
     throw error;
@@ -159,21 +159,40 @@ export const llmAPI = {
     }
   },
 
-  // GET external LLM pressure ulcer prediction (DIRECT - Simple fetch)
+  // GET external LLM pressure ulcer prediction
+  // In development, uses proxy (/api/ai/* -> http://jvision.s2x.kr:8030)
+  // In production, uses full URL from config
   getPressureUlcerPrediction: async (patientId) => {
-    // Direct call to external API - simple fetch
-    const API_URL = `http://jvision.s2x.kr:8030/api/ai/pressure-ulcer/predict/latest/${patientId}`;
+    // In development, use relative URL to leverage proxy
+    // In production, use full URL from config
+    const isDevelopment = config.DEV_MODE;
+    const API_URL = isDevelopment
+      ? `/api/ai/pressure-ulcer/predict/latest/${patientId}`
+      : `${API_BASE_URL.replace('/api', '')}/api/ai/pressure-ulcer/predict/latest/${patientId}`;
     
     try {
       console.log(`🌐 Fetching AI prediction for patient ${patientId}...`);
       console.log(`📍 URL: ${API_URL}`);
+      console.log(`🔧 Mode: ${isDevelopment ? 'Development (using proxy)' : 'Production (direct)'}`);
       
-      const response = await fetch(API_URL);
+      const response = await fetch(API_URL, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
 
       console.log(`📡 Response status: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Provide more specific error messages
+        if (response.status === 404) {
+          throw new Error(`AI prediction not found for patient ${patientId}. The patient may not have thermal data yet.`);
+        } else if (response.status === 500) {
+          throw new Error('AI service is temporarily unavailable. Please try again later.');
+        } else {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
       }
 
       const data = await response.json();

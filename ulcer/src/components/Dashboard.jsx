@@ -1,81 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLanguage } from '../context/LanguageContext';
-import PatientCard from './PatientCard';
-import StatsPanel from './StatsPanel';
-import CareInstructions from './CareInstructions';
-import AddPatientModal from './AddPatientModal';
-import DeleteConfirmModal from './DeleteConfirmModal';
-import LanguageToggle from './LanguageToggle';
-import { getAllPatients, getRiskLevel, createPatient, deletePatient, isOfflineMode } from '../data/patients';
+import { getAllPatients, getRiskLevel, calculateBradenScore, createPatient } from '../data/patients';
 import { testBackendConnection } from '../services/api';
-import config from '../config';
+import { useLanguage } from '../context/LanguageContext';
+import LanguageToggle from './LanguageToggle';
+import AddPatientModal from './AddPatientModal';
 
 function Dashboard() {
   const navigate = useNavigate();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [patients, setPatients] = useState([]);
-  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [filteredPatients, setFilteredPatients] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [filterRisk, setFilterRisk] = useState('all');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [patientToDelete, setPatientToDelete] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [backendStatus, setBackendStatus] = useState(null);
-  const [showBackendInfo, setShowBackendInfo] = useState(false);
-
-  const labels = {
-    ko: {
-      title: '욕창 예방',
-      subtitle: '임상 위험 평가 대시보드',
-      liveMonitoring: '실시간 모니터링',
-      lastUpdated: '최종 업데이트',
-      addPatient: '환자 추가',
-      patientRiskMonitor: '환자 위험 모니터',
-      noPatients: '선택된 필터와 일치하는 환자가 없습니다',
-      loading: '환자 데이터 로딩 중...',
-      error: '환자 데이터를 불러오는데 실패했습니다',
-      retry: '다시 시도',
-      all: '전체',
-      critical: '위험',
-      high: '높음',
-      moderate: '중간',
-      low: '낮음',
-    },
-    en: {
-      title: 'Pressure Ulcer Prevention',
-      subtitle: 'Clinical Risk Assessment Dashboard',
-      liveMonitoring: 'Live Monitoring',
-      lastUpdated: 'Last updated',
-      addPatient: 'Add Patient',
-      patientRiskMonitor: 'Patient Risk Monitor',
-      noPatients: 'No patients match the selected filter',
-      loading: 'Loading patient data...',
-      error: 'Failed to load patient data',
-      retry: 'Retry',
-      all: 'All',
-      critical: 'Critical',
-      high: 'High',
-      moderate: 'Moderate',
-      low: 'Low',
-    },
-  };
-
-  const t = labels[language] || labels.en;
-
-  // Test backend connection
-  const checkBackendConnection = useCallback(async () => {
-    try {
-      const status = await testBackendConnection();
-      setBackendStatus(status);
-      return status;
-    } catch (error) {
-      const errorStatus = { online: false, error: error.message };
-      setBackendStatus(errorStatus);
-      return errorStatus;
-    }
-  }, []);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   // Fetch patients from backend
   const fetchPatients = useCallback(async () => {
@@ -84,314 +28,466 @@ function Dashboard() {
     try {
       const data = await getAllPatients();
       setPatients(data);
-      if (data.length > 0 && !selectedPatient) {
-        setSelectedPatient(data[0]);
-      }
+      setFilteredPatients(data);
+      setLastUpdated(new Date());
       // Check backend status after fetch
-      await checkBackendConnection();
+      const status = await testBackendConnection();
+      setBackendStatus(status);
     } catch (err) {
       console.error('Failed to fetch patients:', err);
-      setError(err.message || t.error);
-      await checkBackendConnection();
+      setError(err.message || 'Failed to load patient data');
+      const status = await testBackendConnection();
+      setBackendStatus(status);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedPatient, t.error, checkBackendConnection]);
+  }, []);
 
   // Check backend connection on mount
   useEffect(() => {
-    checkBackendConnection();
-  }, [checkBackendConnection]);
-
-  useEffect(() => {
+    testBackendConnection().then(setBackendStatus);
     fetchPatients();
   }, [fetchPatients]);
 
-  // Filter patients by risk level
-  const filteredPatients = patients.filter(patient => {
-    if (filterRisk === 'all') return true;
-    return getRiskLevel(patient.riskScore) === filterRisk;
-  });
+  // Filter and search patients
+  useEffect(() => {
+    let filtered = [...patients];
+
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(patient => 
+        patient.name?.toLowerCase().includes(query) ||
+        patient.room_number?.toLowerCase().includes(query) ||
+        patient.id?.toString().includes(query)
+      );
+    }
+
+    // Apply risk filter
+    if (filterRisk !== 'all') {
+      filtered = filtered.filter(patient => {
+        const riskLevel = getRiskLevel(patient.riskScore || 0);
+        return riskLevel === filterRisk;
+      });
+    }
+
+    setFilteredPatients(filtered);
+    // Reset to page 1 when filters change
+    setCurrentPage(1);
+  }, [patients, searchQuery, filterRisk]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedPatients = filteredPatients.slice(startIndex, endIndex);
+
+  // Pagination handlers
+  const handlePrevious = () => {
+    setCurrentPage(prev => Math.max(1, prev - 1));
+  };
+
+  const handleNext = () => {
+    setCurrentPage(prev => Math.min(totalPages, prev + 1));
+  };
 
   // Calculate stats
   const stats = {
     total: patients.length,
-    critical: patients.filter(p => getRiskLevel(p.riskScore) === 'critical').length,
-    high: patients.filter(p => getRiskLevel(p.riskScore) === 'high').length,
-    moderate: patients.filter(p => getRiskLevel(p.riskScore) === 'moderate').length,
-    low: patients.filter(p => getRiskLevel(p.riskScore) === 'low').length,
+    highRisk: patients.filter(p => {
+      const riskLevel = getRiskLevel(p.riskScore || 0);
+      return riskLevel === 'high' || riskLevel === 'critical';
+    }).length,
+    overdue: 0, // This would need turn data from backend
   };
 
-  const handlePatientClick = (patient) => {
-    setSelectedPatient(patient);
+  // Get patient initials
+  const getInitials = (name) => {
+    if (!name) return '??';
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
   };
 
+  // Get risk badge styling
+  const getRiskBadge = (patient) => {
+    const riskScore = patient.riskScore || 0;
+    const bradenScore = patient.bradenScore || calculateBradenScore(patient);
+    const riskLevel = getRiskLevel(riskScore);
+    
+    if (riskLevel === 'critical' || riskLevel === 'high') {
+      return {
+        className: 'inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800 dark:bg-red-900/30 dark:text-red-300',
+        label: `High (${bradenScore})`
+      };
+    } else if (riskLevel === 'moderate') {
+      return {
+        className: 'inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+        label: `Medium (${bradenScore})`
+      };
+    } else if (riskLevel === 'low') {
+      return {
+        className: 'inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300',
+        label: `Low (${bradenScore})`
+      };
+    }
+    return {
+      className: 'inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+      label: `Medium (${bradenScore})`
+    };
+  };
+
+  // Get avatar color based on patient
+  const getAvatarColor = (index, name) => {
+    const colors = [
+      { bg: 'bg-blue-100', text: 'text-primary' },
+      { bg: 'bg-purple-100', text: 'text-purple-600' },
+      { bg: 'bg-green-100', text: 'text-green-600' },
+      { bg: 'bg-pink-100', text: 'text-pink-600' },
+      { bg: 'bg-teal-100', text: 'text-teal-600' },
+    ];
+    return colors[index % colors.length];
+  };
+
+  // Format time ago
+  const getTimeAgo = (date) => {
+    if (!date) return `2 ${t('minsAgo')}`;
+    const now = new Date();
+    const diffMs = now - new Date(date);
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return t('justNow');
+    if (diffMins < 60) return `${diffMins} ${t('minsAgo')}`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} ${t('hoursAgo')}`;
+    return `${Math.floor(diffHours / 24)} ${t('daysAgo')}`;
+  };
+
+  // Handle patient details navigation
   const handleViewDetails = (patientId) => {
     navigate(`/patient/${patientId}`);
   };
 
+  // Handle add patient
   const handleAddPatient = async (newPatientData) => {
     try {
-      const newPatient = await createPatient(newPatientData);
-      setPatients(prev => [newPatient, ...prev]);
-      setSelectedPatient(newPatient);
+      await createPatient(newPatientData);
       setIsAddModalOpen(false);
+      // Refresh patient list
+      await fetchPatients();
     } catch (err) {
       console.error('Failed to create patient:', err);
-      alert(language === 'ko' ? '환자 등록에 실패했습니다.' : 'Failed to create patient.');
-    }
-  };
-
-  const handleDeleteClick = (patientId) => {
-    const patient = patients.find(p => p.id === patientId);
-    setPatientToDelete(patient);
-    setIsDeleteModalOpen(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!patientToDelete) return;
-
-    try {
-      await deletePatient(patientToDelete.id);
-      const updatedPatients = patients.filter(p => p.id !== patientToDelete.id);
-      setPatients(updatedPatients);
-      if (selectedPatient?.id === patientToDelete.id) {
-        setSelectedPatient(updatedPatients[0] || null);
-      }
-      setPatientToDelete(null);
-      setIsDeleteModalOpen(false);
-    } catch (err) {
-      console.error('Failed to delete patient:', err);
-      alert(language === 'ko' ? '환자 삭제에 실패했습니다.' : 'Failed to delete patient.');
+      alert('Failed to create patient. Please try again.');
     }
   };
 
   return (
-    <div className="min-h-screen p-6 lg:p-8 bg-gradient-to-br from-gray-50 to-gray-100 text-slate-800">
-      {/* Header */}
-      <header className="mb-8 animate-fade-in">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-clinical-500 to-clinical-700 flex items-center justify-center shadow-lg">
-              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
+    <div className="flex h-screen w-full overflow-hidden">
+      {/* Side Navigation */}
+      <aside className="hidden w-64 flex-col border-r border-border-light dark:border-border-dark bg-surface-light dark:bg-surface-dark lg:flex">
+        <div className="flex h-full flex-col justify-between p-4">
+          <div className="flex flex-col gap-6">
+            {/* Brand/Header */}
+            <div className="flex items-center gap-3 px-2 py-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-[28px]">monitor_heart</span>
+              </div>
+              <div className="flex flex-col">
+                <h1 className="text-base font-bold leading-tight text-text-main dark:text-white">CareMonitor</h1>
+                <p className="text-xs font-medium text-text-sub dark:text-gray-400">{t('ward')} 3B</p>
+              </div>
             </div>
-            <div>
-              <h1 className="font-display text-3xl font-bold text-slate-800 tracking-tight">{t.title}</h1>
-              <p className="text-slate-500 font-body">{t.subtitle}</p>
-            </div>
+            {/* Navigation Links */}
+            <nav className="flex flex-col gap-1">
+              <a 
+                onClick={() => navigate('/')}
+                className="flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-2.5 text-primary dark:text-primary transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[24px]">grid_view</span>
+                <span className="text-sm font-medium">{t('dashboard')}</span>
+              </a>
+              <a 
+                onClick={() => navigate('/patients')}
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-text-main dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[24px]">group</span>
+                <span className="text-sm font-medium">{t('patientList')}</span>
+              </a>
+            </nav>
           </div>
-          <div className="flex items-center gap-3">
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex flex-1 flex-col overflow-y-auto bg-background-light dark:bg-background-dark">
+        {/* Mobile Header (Visible only on small screens) */}
+        <div className="flex items-center justify-between border-b border-border-light bg-surface-light p-4 dark:border-border-dark dark:bg-surface-dark lg:hidden">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">monitor_heart</span>
+            <span className="font-bold">CareMonitor</span>
+          </div>
+          <button className="text-text-main dark:text-white">
+            <span className="material-symbols-outlined">menu</span>
+          </button>
+        </div>
+
+        <div className="mx-auto w-full max-w-[1400px] flex-1 p-6 lg:p-10">
+          {/* Page Headline */}
+          <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight text-text-main dark:text-white">{t('ward')} 3B - {t('pressureUlcerPrevention')}</h2>
+              <p className="mt-1 text-text-sub dark:text-gray-400">{t('realTimeMonitoring')}</p>
+            </div>
+            <div className="flex items-center gap-4">
             <LanguageToggle />
+              <div className="flex items-center gap-2 text-sm text-text-sub dark:text-gray-400">
+                <span className="material-symbols-outlined text-base">schedule</span>
+                <span>{t('lastUpdated')}: {getTimeAgo(lastUpdated)}</span>
+              </div>
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-medium hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-lg shadow-emerald-200"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              {t.addPatient}
+                className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-b from-emerald-500 to-emerald-600 px-5 py-3 text-white font-medium shadow-lg shadow-emerald-200 hover:from-emerald-600 hover:to-emerald-700 transition-all"
+              >
+                <span className="material-symbols-outlined text-[20px]">add</span>
+                <span>{t('addPatient')}</span>
             </button>
           </div>
         </div>
-        <div className="flex items-center gap-2 mt-4 flex-wrap">
-          {backendStatus === null ? (
-            // Initial loading state
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-300">
-              <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-              <span className="text-sm text-slate-600 font-medium">
-                {language === 'ko' ? '연결 확인 중...' : 'Checking connection...'}
-              </span>
-            </span>
-          ) : backendStatus.online ? (
-            // Backend is connected
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-100 border border-emerald-300">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-sm text-emerald-700 font-medium">
-                {language === 'ko' ? '🌐 백엔드 연결됨' : '🌐 Backend Connected'}
-              </span>
-            </span>
-          ) : (
-            // Backend is NOT connected
-            <button
-              onClick={() => setShowBackendInfo(!showBackendInfo)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-100 border border-red-300 hover:bg-red-200 transition-colors cursor-pointer"
-            >
-              <span className="w-2 h-2 rounded-full bg-red-500"></span>
-              <span className="text-sm text-red-700 font-medium">
-                {language === 'ko' ? '❌ 백엔드 연결 안됨' : '❌ Backend Not Connected'}
-              </span>
-              <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
-          )}
-          <span className="text-slate-500 text-sm">
-            {t.lastUpdated}: {new Date().toLocaleTimeString()}
-          </span>
-          
-          {/* Backend Info Panel */}
-          {showBackendInfo && (
-            <div className="w-full mt-2 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <h3 className="font-semibold text-amber-900">
-                    {language === 'ko' ? '백엔드 연결 정보' : 'Backend Connection Info'}
-                  </h3>
+
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-8">
+            {/* Card 1 */}
+            <div className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border-light bg-surface-light p-6 shadow-sm transition-all hover:shadow-md dark:border-border-dark dark:bg-surface-dark">
+              <div className="absolute right-0 top-0 h-16 w-16 -translate-y-1/2 translate-x-1/2 rounded-full bg-blue-50 dark:bg-blue-900/20"></div>
+              <div>
+                <p className="text-sm font-medium text-text-sub dark:text-gray-400">{t('patientsMonitoring')}</p>
+                <p className="mt-2 text-3xl font-bold text-text-main dark:text-white">{stats.total}</p>
+              </div>
+              <div className="mt-4 flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
+                <span className="material-symbols-outlined text-base">trending_up</span>
+                <span>{isLoading ? t('loadingPatients') : `${stats.total} ${t('totalPatients')}`}</span>
                 </div>
-                <button onClick={() => setShowBackendInfo(false)} className="text-amber-600 hover:text-amber-800">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
               </div>
               
-              <div className="space-y-2 text-sm text-amber-900">
-                <p>
-                  <strong>{language === 'ko' ? 'API URL:' : 'API URL:'}</strong>{' '}
-                  <code className="px-2 py-1 bg-amber-100 rounded">{config.API_BASE_URL}</code>
-                </p>
-                <p>
-                  <strong>{language === 'ko' ? '상태:' : 'Status:'}</strong>{' '}
-                  {backendStatus?.online ? (
-                    <span className="text-emerald-600">✅ {language === 'ko' ? '온라인' : 'Online'}</span>
-                  ) : (
-                    <span className="text-red-600">❌ {language === 'ko' ? '오프라인' : 'Offline'}</span>
-                  )}
-                </p>
-                {backendStatus?.error && (
-                  <p>
-                    <strong>{language === 'ko' ? '에러:' : 'Error:'}</strong>{' '}
-                    <code className="text-red-600">{backendStatus.error}</code>
-                  </p>
-                )}
-                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="font-medium text-blue-900 mb-1">
-                    {language === 'ko' ? '💡 백엔드를 실행하려면:' : '💡 To start the backend:'}
-                  </p>
-                  <code className="block text-xs bg-slate-800 text-emerald-400 p-2 rounded">
-                    cd your-spring-boot-project<br/>
-                    ./mvnw spring-boot:run
-                  </code>
-                  <p className="text-xs text-blue-700 mt-2">
-                    {language === 'ko' 
-                      ? '백엔드가 시작되면 페이지를 새로고침하세요.' 
-                      : 'Refresh the page after starting the backend.'}
-                  </p>
+            {/* Card 2 */}
+            <div className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border-light bg-surface-light p-6 shadow-sm transition-all hover:shadow-md dark:border-border-dark dark:bg-surface-dark">
+              <div className="absolute right-0 top-0 h-16 w-16 -translate-y-1/2 translate-x-1/2 rounded-full bg-orange-50 dark:bg-orange-900/20"></div>
+              <div>
+                <p className="text-sm font-medium text-text-sub dark:text-gray-400">{t('highRiskCases')}</p>
+                <p className="mt-2 text-3xl font-bold text-orange-600 dark:text-orange-400">{stats.highRisk}</p>
                 </div>
-                <button
-                  onClick={async () => {
-                    await checkBackendConnection();
-                    await fetchPatients();
-                  }}
-                  className="w-full mt-2 px-4 py-2 bg-clinical-600 text-white rounded-lg hover:bg-clinical-700 transition-colors flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  {language === 'ko' ? '백엔드 재연결 시도' : 'Retry Backend Connection'}
-                </button>
+              <div className="mt-4 flex items-center gap-1 text-xs font-medium text-text-sub dark:text-gray-400">
+                <span>{t('requiresFrequentTurning')}</span>
               </div>
             </div>
-          )}
+
+            {/* Card 3 */}
+            <div className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-border-light bg-surface-light p-6 shadow-sm transition-all hover:shadow-md dark:border-border-dark dark:bg-surface-dark">
+              <div className="absolute right-0 top-0 h-16 w-16 -translate-y-1/2 translate-x-1/2 rounded-full bg-red-50 dark:bg-red-900/20"></div>
+              <div>
+                <p className="text-sm font-medium text-text-sub dark:text-gray-400">{t('overdueTurns')}</p>
+                <p className="mt-2 text-3xl font-bold text-red-600 dark:text-red-400">{stats.overdue}</p>
+              </div>
+              <div className="mt-4 flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
+                <span className="material-symbols-outlined text-base">warning</span>
+                <span>{t('immediateActionNeeded')}</span>
         </div>
-      </header>
-
-      {/* Stats Panel */}
-      <StatsPanel stats={stats} />
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mt-6">
-        {/* Patient List */}
-        <div className="xl:col-span-2 glass rounded-2xl p-6 animate-slide-up delay-200">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-display text-xl font-semibold text-slate-800">{t.patientRiskMonitor}</h2>
-            <div className="flex gap-2">
-              {['all', 'critical', 'high', 'moderate', 'low'].map((level) => (
-                <button
-                  key={level}
-                  onClick={() => setFilterRisk(level)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                    filterRisk === level
-                      ? 'bg-clinical-600 text-white shadow-md'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {t[level]}
-                </button>
-              ))}
             </div>
           </div>
 
-          {/* Loading State */}
-          {isLoading && (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="w-12 h-12 border-4 border-clinical-200 border-t-clinical-600 rounded-full animate-spin mb-4"></div>
-              <p className="text-slate-500">{t.loading}</p>
-            </div>
-          )}
-
-          {/* Error State */}
-          {error && !isLoading && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
-                <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
+          {/* Filters & Actions Toolbar */}
+          <div className="mb-6 flex flex-col gap-4 rounded-xl border border-border-light bg-surface-light p-4 shadow-sm dark:border-border-dark dark:bg-surface-dark lg:flex-row lg:items-center lg:justify-between">
+            {/* Search */}
+            <div className="relative w-full lg:max-w-md">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <span className="material-symbols-outlined text-text-sub dark:text-gray-500">search</span>
               </div>
-              <p className="text-red-600 font-medium mb-2">{t.error}</p>
-              <p className="text-slate-500 text-sm mb-4">{error}</p>
-              <button
-                onClick={fetchPatients}
-                className="px-4 py-2 bg-clinical-600 text-white rounded-lg hover:bg-clinical-700 transition-colors"
+              <input 
+                className="block w-full rounded-lg border-none bg-background-light py-2.5 pl-10 pr-3 text-sm text-text-main placeholder-text-sub focus:ring-2 focus:ring-primary dark:bg-background-dark dark:text-white dark:placeholder-gray-500" 
+                placeholder={t('searchPlaceholder')}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            {/* Filter Chips */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button 
+                onClick={() => setFilterRisk('all')}
+                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium shadow-sm transition-colors ${
+                  filterRisk === 'all' 
+                    ? 'bg-primary text-white hover:bg-primary-dark' 
+                    : 'bg-background-light text-text-sub hover:bg-gray-200 dark:bg-background-dark dark:text-gray-300 dark:hover:bg-white/10'
+                }`}
               >
-                {t.retry}
+                <span>{t('allPatients')}</span>
+              </button>
+              <button 
+                onClick={() => setFilterRisk('high')}
+                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  filterRisk === 'high' 
+                    ? 'bg-primary text-white hover:bg-primary-dark' 
+                    : 'bg-background-light text-text-sub hover:bg-gray-200 dark:bg-background-dark dark:text-gray-300 dark:hover:bg-white/10'
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full bg-red-500"></span>
+                <span>{t('highRisk')}</span>
+              </button>
+              <button 
+                onClick={() => setFilterRisk('moderate')}
+                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  filterRisk === 'moderate' 
+                    ? 'bg-primary text-white hover:bg-primary-dark' 
+                    : 'bg-background-light text-text-sub hover:bg-gray-200 dark:bg-background-dark dark:text-gray-300 dark:hover:bg-white/10'
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full bg-yellow-500"></span>
+                <span>{t('moderateRisk')}</span>
+              </button>
+              <button
+                onClick={() => setFilterRisk('low')}
+                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  filterRisk === 'low' 
+                    ? 'bg-primary text-white hover:bg-primary-dark' 
+                    : 'bg-background-light text-text-sub hover:bg-gray-200 dark:bg-background-dark dark:text-gray-300 dark:hover:bg-white/10'
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                <span>{t('lowRisk')}</span>
               </button>
             </div>
-          )}
+          </div>
 
-          {/* Patient List */}
-          {!isLoading && !error && (
-            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-              {filteredPatients.map((patient, index) => (
-                <PatientCard
-                  key={patient.id}
-                  patient={patient}
-                  isSelected={selectedPatient?.id === patient.id}
-                  onClick={() => handlePatientClick(patient)}
-                  onViewDetails={() => handleViewDetails(patient.id)}
-                  onDelete={() => handleDeleteClick(patient.id)}
-                  delay={index * 100}
-                />
-              ))}
-              {filteredPatients.length === 0 && (
-                <div className="text-center py-12 text-slate-500">{t.noPatients}</div>
-              )}
+          {/* Patient Status Table */}
+          <div className="overflow-hidden rounded-xl border border-border-light bg-surface-light shadow-sm dark:border-border-dark dark:bg-surface-dark">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                  <p className="text-text-sub dark:text-gray-400">{t('loadingPatients')}</p>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="flex flex-col items-center gap-4">
+                  <span className="material-symbols-outlined text-6xl text-red-500">error</span>
+                  <p className="text-red-600 dark:text-red-400 font-medium">{error}</p>
+                  <button 
+                    onClick={fetchPatients}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">refresh</span>
+                    <span>{t('retry')}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[800px] text-left text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-800/50">
+                      <tr>
+                        <th className="px-6 py-4 font-semibold text-text-main dark:text-gray-200">{t('patient')}</th>
+                        <th className="px-6 py-4 font-semibold text-text-main dark:text-gray-200">{t('room')}</th>
+                        <th className="px-6 py-4 font-semibold text-text-main dark:text-gray-200">{t('riskScore')}</th>
+                        <th className="px-6 py-4 font-semibold text-text-main dark:text-gray-200">{t('lastTurn')}</th>
+                        <th className="px-6 py-4 font-semibold text-text-main dark:text-gray-200">{t('nextTurnDue')}</th>
+                        <th className="px-6 py-4 font-semibold text-text-main dark:text-gray-200 text-right">{t('action')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-light dark:divide-border-dark">
+                      {filteredPatients.length === 0 ? (
+                        <tr>
+                          <td colSpan="6" className="px-6 py-12 text-center text-text-sub dark:text-gray-400">
+                            {t('noPatientsFound')}
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedPatients.map((patient, index) => {
+                          const riskBadge = getRiskBadge(patient);
+                          const avatarColor = getAvatarColor(index, patient.name);
+                          const initials = getInitials(patient.name);
+                          
+                          return (
+                            <tr key={patient.id} className="group hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${avatarColor.bg} ${avatarColor.text} dark:${avatarColor.bg.replace('100', '900/30')} font-bold`}>
+                                    {initials}
+                                  </div>
+                                  <div>
+                                    <div className="font-medium text-text-main dark:text-white">{patient.name || 'Unknown'}</div>
+                                    <div className="text-xs text-text-sub dark:text-gray-500">ID: {patient.id}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="font-medium text-text-main dark:text-gray-300">{patient.room_number || 'N/A'}</div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={riskBadge.className}>
+                                  {riskBadge.label}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="text-text-main dark:text-gray-300">--</div>
+                                <div className="text-xs text-text-sub dark:text-gray-500">--</div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-2 text-text-sub dark:text-gray-400">
+                                  <span className="material-symbols-outlined text-[18px]">schedule</span>
+                                  <span>--</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <button 
+                                  onClick={() => handleViewDetails(patient.id)}
+                                  className="inline-flex items-center rounded-lg border border-border-light dark:border-border-dark bg-white dark:bg-transparent px-3 py-1.5 text-xs font-medium text-text-main dark:text-white shadow-sm hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                                >
+                                  {t('details')}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Pagination Footer */}
+                <div className="flex items-center justify-between border-t border-border-light bg-surface-light px-6 py-4 dark:border-border-dark dark:bg-surface-dark">
+                  <div className="text-xs text-text-sub dark:text-gray-400">
+                    {t('showing')} <span className="font-medium text-text-main dark:text-white">{filteredPatients.length === 0 ? 0 : startIndex + 1}</span> {t('to')} <span className="font-medium text-text-main dark:text-white">{Math.min(endIndex, filteredPatients.length)}</span> {t('of')} <span className="font-medium text-text-main dark:text-white">{filteredPatients.length}</span> {t('totalPatients')}
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={handlePrevious}
+                      disabled={currentPage === 1}
+                      className="inline-flex items-center rounded-md border border-border-light bg-white px-3 py-1 text-xs font-medium text-text-sub shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-border-dark dark:bg-transparent dark:text-gray-400 dark:hover:bg-white/5"
+                    >
+                      {t('previous')}
+                    </button>
+                    <button 
+                      onClick={handleNext}
+                      disabled={currentPage === totalPages || filteredPatients.length === 0}
+                      className="inline-flex items-center rounded-md border border-border-light bg-white px-3 py-1 text-xs font-medium text-text-sub shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-border-dark dark:bg-transparent dark:text-gray-400 dark:hover:bg-white/5"
+                    >
+                      {t('next')}
+                    </button>
+                  </div>
             </div>
+              </>
           )}
         </div>
-
-        {/* Care Instructions Panel */}
-        <div className="glass rounded-2xl p-6 animate-slide-up delay-300">
-          <CareInstructions patient={selectedPatient} />
         </div>
-      </div>
+      </main>
 
-      {/* Modals */}
+      {/* Add Patient Modal */}
       <AddPatientModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSave={handleAddPatient}
-      />
-      <DeleteConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => { setIsDeleteModalOpen(false); setPatientToDelete(null); }}
-        onConfirm={handleConfirmDelete}
-        patientName={patientToDelete?.name || ''}
       />
     </div>
   );
